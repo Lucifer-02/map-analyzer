@@ -5,7 +5,7 @@ import concurrent.futures
 from time import time
 
 
-sys.path.append("./engines/omkarcloud-scraper/")
+sys.path.append("./engines/omkarcloud-scraper/google-maps-scraper/")
 
 from geopy import Point
 
