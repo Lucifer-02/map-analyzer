@@ -1,0 +1,18 @@
+[submodule "google-maps-scraper"]
+	path = google-maps-scraper
+	url = https://github.com/omkarcloud/google-maps-scraper
+[submodule "engines/omkarcloud"]
+	path = engines/omkarcloud
+	url = git@github.com:omkarcloud/google-maps-scraper.git
+[submodule "engines/gosom"]
+	path = engines/gosom
+	url = https://github.com/gosom/google-maps-scraper
+[submodule "engines/goso"]
+	path = engines/goso
+	url = https://github.com/gosom/google-maps-scraper
+[submodule "engines/gosom-scraper"]
+	path = engines/gosom-scraper
+	url = https://github.com/gosom/google-maps-scraper
+[submodule "engines/omkarcloud-scraper"]
+	path = engines/omkarcloud-scraper
+	url = https://github.com/omkarcloud/google-maps-scraper
