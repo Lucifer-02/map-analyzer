@@ -6,12 +6,9 @@ import geopandas as gpd
 import numpy as np
 from shapely.geometry import Polygon
 
-
 def get_pop(src: rasterio.DatasetReader, aoi: gpd.GeoDataFrame) -> float:
     pop_meta = src.meta
-
-    # Reproject the AOI to match the CRS of the population raster
-    aoi.to_crs(pop_meta["crs"])
+# Reproject the AOI to match the CRS of the population raster aoi.to_crs(pop_meta["crs"])
 
     # Step 3: Mask the Raster with AOI
     # Mask the raster using the AOI geometry
