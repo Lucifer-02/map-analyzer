@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "New AOI"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [105.84630, 21.039603],
+            [105.84170, 21.020777],
+            [105.86402, 21.019655],
+            [105.85754, 21.042487],
+            [105.84630, 21.039603]
+          ]
+        ]
+      }
+    }
+  ]
+}
