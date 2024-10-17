@@ -2,44 +2,19 @@ import logging
 from pathlib import Path
 
 
-from geopy import Point
-
-
-from utils import find_points_in_polygon
-
-from engines.gosom_scraper import process, crawler
+from engines.gosom_scraper import process
 
 
 def main():
-    # save logs to file
-    logging.basicConfig(
-        filename="crawler.log",
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-    )
-
-    # HOANKIEM_CORNERS = [
-    #     Point(21.019655, 105.86402),
-    #     Point(21.020777, 105.84170),
-    #     Point(21.039603, 105.84630),
-    #     Point(21.042487, 105.85754),
-    # ]
-
-    DISTANCE_POINTS_KMS = 0.5
-
-    crawler.crawl(
-        input_file=Path("./queries/arounds.txt"),
-        output_file=Path("./datasets/arounds.csv"),
-        coordinates="21.033,105.853",
-        zoom=18,
-        timeout=1,
-        depth=10,
-    )
-
-    # df = process.prepare(Path("./datasets/arounds.csv"))
-    # print(df)
-    # df.write_csv(Path("./datasets/results/arounds.csv"))
+    output_file = Path("./datasets/area.csv")
+    query_file = Path("./queries/atm.txt")
+    process.crawl_in_area(output_file=output_file, query_file=query_file)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        filename=Path("crawling.log"),
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+    )
     main()

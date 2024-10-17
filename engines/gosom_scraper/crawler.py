@@ -1,5 +1,6 @@
 from subprocess import call
 from pathlib import Path
+import logging
 
 
 def crawl(
@@ -10,9 +11,10 @@ def crawl(
     timeout: float = 1,
     depth: int = 10,
 ):
+    logging.info(f"Crawling around the coordinates: {coordinates} with zoom {zoom}")
     call(
         [
-            "/media/lucifer/STORAGE/IMPORTANT/map-analyzer/engines/gosom_scraper/scraper/google-maps-scraper",
+            "/media/lucifer/STORAGE/IMPORTANT/map-analyzer/engines/gosom_scraper/google-maps-scraper",
             "-input",
             str(input_file),
             "-results",
