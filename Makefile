@@ -1,9 +1,10 @@
 run:
 	# python3 ./extract_coordinates.py
-	# python3 ./main.py
+	python3 ./main.py
 	# python3 eda.py
-	python3 ./population.py
+	# python3 ./population.py
 	# python3 ./viz.py && open ./index.html
+	# python3 ./utils.py
 
 # Download population datasets
 dataset:

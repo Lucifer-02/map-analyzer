@@ -10,7 +10,7 @@ def distance(point1: Point, point2: Point) -> Distance:
 
 
 # shift point by distance to the directions
-def shift_localtion(point: Point, distance_kms: float, degree: int) -> Point:
+def shift_localtion(point: Point, distance_kms: float, degree: float) -> Point:
     return geopy.distance.distance(kilometers=distance_kms).destination(
         point=point, bearing=degree
     )
@@ -49,8 +49,8 @@ def find_points_in_polygon(
         ).longitude
         - min_lon
     )
-    num_points_lat = int((max_lat - min_lat) / distance_lat)
-    num_points_lon = int((max_lon - min_lon) / distance_lon)
+    num_points_lat = int((max_lat - min_lat) / distance_lat) + 1
+    num_points_lon = int((max_lon - min_lon) / distance_lon) + 1
 
     # calculate the points inside the bounding box
     points = []
@@ -64,6 +64,16 @@ def find_points_in_polygon(
 
     # add the corners to the polygon
     points.extend(corners)
+
+    return points
+
+
+def draw_circle(center: Point, radius_km: float, num_points: int = 15) -> list[Point]:
+    points = []
+    for i in range(num_points):
+        degree = 360 * i / num_points
+        point = shift_localtion(point=center, distance_kms=radius_km, degree=degree)
+        points.append(point)
 
     return points
 
@@ -89,11 +99,45 @@ def test_polygon():
     plt.show()
 
 
+def test_circle():
+    center = geopy.Point(21.025206, 105.848712)
+    radius = 2.0
+    num_points = 15
+    points = draw_circle(center=center, radius_km=radius, num_points=num_points)
+    print(points)
+
+    # plot the points
+    import matplotlib.pyplot as plt
+
+    plt.plot(
+        [point.longitude for point in points],
+        [point.latitude for point in points],
+        "ro",
+    )
+    plt.show()
+
+
 def main():
     # point1 = Point(21.025206, 105.848712)
     # point2 = Point(21.0253751, 105.8512529)
     # print(distance(point1, point2))
-    test_polygon()
+    # test_polygon()
+    # test_circle()
+    circle = draw_circle(geopy.Point(21.025206, 105.848712), 2.0, 20)
+    points = find_points_in_polygon(
+        corners=circle,
+        distance_points_kms=0.5,
+    )
+    points.extend(circle)
+    # display the points
+    import matplotlib.pyplot as plt
+
+    plt.plot(
+        [point.longitude for point in points],
+        [point.latitude for point in points],
+        "ro",
+    )
+    plt.show()
 
 
 if __name__ == "__main__":

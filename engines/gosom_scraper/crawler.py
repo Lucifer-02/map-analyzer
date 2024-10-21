@@ -50,7 +50,10 @@ def crawl_around_point(
     )
 
 
-def crawl_in_area(points: list[Point], output_file: Path, query_file: Path):
+def crawl_in_area(points: list[Point], output_files: list[Path], query_file: Path):
+    assert len(points) == len(
+        output_files
+    ), "Number of points and output files must be equal"
 
     logging.info(f"Found {len(points)} points in the polygon")
 
@@ -60,5 +63,5 @@ def crawl_in_area(points: list[Point], output_file: Path, query_file: Path):
         crawl_around_point(
             point=point,
             query_file=query_file,
-            output_file=output_file.parent / f"area_{i}.csv",
+            output_file=output_files[i],
         )
