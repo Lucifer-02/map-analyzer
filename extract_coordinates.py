@@ -61,18 +61,40 @@ def get_coordinates_playwright(query: str) -> str:
     return match.group().replace("@", "")
 
 
+def get_search_link(query: str) -> str:
+
+    url = "https://www.google.com/maps/search/" + parse.quote(query)
+
+    new_url = None
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        # sleep to avoid being blocked
+        sleep(randint(1, 5))
+        page = browser.new_page()
+        page.goto(url)
+        initial_url = page.url
+
+        page.wait_for_function("window.location.href !== '{}'".format(initial_url))
+
+        new_url = page.url
+
+        browser.close()
+
+    assert new_url != url, "the url should have changed"
+
+    return new_url
+
+
 def main():
     df = pl.read_excel("./datasets/poi_original.xlsx")
-    # print(get_coordinates_playwright(df["Address Line 1"][0]))
-    # coord = get_coordinates(df["Address Line 1"][0])
-    # print(coord)
-    # add a column with the coordinates using the address column
-    df = df[:5].with_columns(
+    # add a column with the links using the address column
+    df = df.with_columns(
         pl.col("Address Line 1")
-        .map_elements(get_coordinates_playwright, return_dtype=pl.String)
-        .alias("coordinates")
+        .map_elements(get_search_link, return_dtype=pl.String)
+        .alias("link")
     )
-    print(df)
+    # save to file
+    df.write_parquet("poi_with_coordinates.parquet")
 
 
 if __name__ == "__main__":
