@@ -3,6 +3,7 @@ from geopy.distance import Distance, geodesic
 import geopy.distance
 import shapely
 import geopy
+import polars as pl
 
 
 def distance(point1: Point, point2: Point) -> Distance:
@@ -22,6 +23,13 @@ def point_to_string(point: Point) -> str:
 
 def point_to_tuple(point: Point) -> tuple[float, float]:
     return (point.latitude, point.longitude)
+
+
+def extract_coordinates(table: pl.DataFrame, link_col: str) -> pl.DataFrame:
+    return table.with_columns(
+        pl.col(link_col).str.extract(r"@(\d+\.\d+),(\d+\.\d+)", 1).alias("lat"),
+        pl.col(link_col).str.extract(r"@(\d+\.\d+),(\d+\.\d+)", 2).alias("lon"),
+    )
 
 
 # input is a list of corners of a polygon and distance of each other points, find the points inside the polygon by calculating evenly spaced points inside the rectangle that contains the polygon and check if the point is inside the polygon
@@ -68,7 +76,7 @@ def find_points_in_polygon(
     return points
 
 
-def draw_circle(center: Point, radius_km: float, num_points: int = 15) -> list[Point]:
+def draw_circle(center: Point, radius_km: float, num_points: int = 4) -> list[Point]:
     points = []
     for i in range(num_points):
         degree = 360 * i / num_points
@@ -123,10 +131,12 @@ def main():
     # print(distance(point1, point2))
     # test_polygon()
     # test_circle()
-    circle = draw_circle(geopy.Point(21.025206, 105.848712), 2.0, 20)
+    circle = draw_circle(
+        center=geopy.Point(21.025206, 105.848712), radius_km=2.0, num_points=4
+    )
     points = find_points_in_polygon(
         corners=circle,
-        distance_points_kms=0.5,
+        distance_points_kms=0.9,
     )
     points.extend(circle)
     # display the points

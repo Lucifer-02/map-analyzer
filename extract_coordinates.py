@@ -1,3 +1,5 @@
+# this script ONLY for extracting coordinates from given poi original excel file
+
 import requests
 import re
 from urllib import parse
