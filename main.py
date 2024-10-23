@@ -3,9 +3,11 @@ from pathlib import Path
 
 from geopy.point import Point
 import polars as pl
+import rasterio
 
 from engines.gosom_scraper import crawler
-from utils import find_points_in_polygon, draw_circle
+from lib.utils import find_points_in_polygon, draw_circle, create_cover_from_points
+from lib.population import pop_in_radius, _get_pop
 
 
 def test_hoankiem():
@@ -100,12 +102,77 @@ def places_within_radius(
     )
 
 
+def test_population():
+    # COVER = Path("./queries/long_bien.geojson")
+    # aoi = gpd.read_file(COVER)
+
+    coordinates = [
+        Point(21.081652, 105.841987),
+        Point(21.079282, 105.842232),
+        Point(21.051409, 105.850300),
+        Point(21.006545, 105.874504),
+        Point(21.004943, 105.876736),
+        Point(20.995167, 105.899567),
+        Point(21.004462, 105.910897),
+        Point(21.004622, 105.920510),
+        Point(21.039554, 105.938191),
+        Point(21.070473, 105.925660),
+        Point(21.078321, 105.905575),
+        Point(21.078642, 105.891327),
+        Point(21.066948, 105.866308),
+    ]
+
+    cover_area = create_cover_from_points(points=coordinates)
+
+    POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
+    with rasterio.open(POPULATION_DATASET) as src:
+        total_population = _get_pop(src=src, aoi=cover_area)
+
+    print(f"Total population within the area of interest: {total_population}")
+
+
+def test_pop_in_radius():
+    POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
+    with rasterio.open(POPULATION_DATASET) as src:
+        total_population = pop_in_radius(
+            center=Point(21.0197031, 105.8459557), radius_km=2.0, dataset=src
+        )
+
+    print(f"Total population within the area of interest: {total_population}")
+
+
+def add_pop_around_poi():
+    hanoi_poi = pl.read_excel("./datasets/temp/around_poi_with_distance.xlsx")
+
+    # make a list of dictionaries with keys are name,lat,lon
+    pois = hanoi_poi.to_dicts()
+
+    new_pois = []
+    POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
+    with rasterio.open(POPULATION_DATASET) as src:
+        for poi in pois:
+            total_population = pop_in_radius(
+                center=Point(poi["lat"], poi["lon"]), radius_km=2.0, dataset=src
+            )
+            poi["population"] = total_population
+            new_pois.append(poi)
+
+    new_df = pl.DataFrame(new_pois)
+    new_df.write_excel("./datasets/temp/around_poi_with_population.xlsx")
+
+
 def main():
     # hoankiem()
     # places_within_radius(center=Point(21.019430, 105.836551), radius_km=2.0)
     # test_around_point()
     # test_places_within_radius()
-    test_around_points()
+    # test_around_points()
+
+    # test_population()
+
+    test_pop_in_radius()
+
+    # add_pop_around_poi()
 
 
 if __name__ == "__main__":
