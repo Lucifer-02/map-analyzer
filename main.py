@@ -61,8 +61,12 @@ def test_places_within_radius():
 
 def test_around_points():
     df = pl.read_excel("./datasets/results/poi_with_coordinates_full.xlsx")
-    hanoi_poi = df.filter(pl.col("Address Line 1").str.contains(r"(Ha Noi)|(Hanoi)"))
-    logging.info(f"Found {len(hanoi_poi)} POIs in Hanoi")
+    # not contain "100","101","102","103","105","106","108","109","110","111","200","202","203","204","205"
+    hanoi_poi = df.filter(
+        pl.col("Address Line 1").str.contains(r"(Ha Noi)|(Hanoi)"),
+    )
+    # print(hanoi_poi)
+    # logging.info(f"Found {len(hanoi_poi)} POIs in Hanoi")
 
     # make a list of dictionaries with keys are name,lat,lon
     pois = hanoi_poi.to_dicts()
