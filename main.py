@@ -124,7 +124,9 @@ def test_population():
 
     cover_area = create_cover_from_points(points=coordinates)
 
-    POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
+    POPULATION_DATASET = Path(
+        "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0_R7_C29.tif"
+    )
     with rasterio.open(POPULATION_DATASET) as src:
         total_population = _get_pop(src=src, aoi=cover_area)
 
@@ -132,7 +134,9 @@ def test_population():
 
 
 def test_pop_in_radius():
-    POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
+    POPULATION_DATASET = Path(
+        "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0_R7_C29.tif"
+    )
     with rasterio.open(POPULATION_DATASET) as src:
         total_population = pop_in_radius(
             center=Point(21.0197031, 105.8459557), radius_km=2.0, dataset=src
@@ -142,15 +146,18 @@ def test_pop_in_radius():
 
 
 def add_pop_around_poi():
-    hanoi_poi = pl.read_excel("./datasets/temp/around_poi_with_distance.xlsx")
+    hanoi_poi = pl.read_excel("./datasets/temp/around_poi_with_population.xlsx")
 
     # make a list of dictionaries with keys are name,lat,lon
     pois = hanoi_poi.to_dicts()
 
     new_pois = []
-    POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
+    POPULATION_DATASET = Path(
+        "./datasets/population/vnm_general_2020.tif"
+    )
     with rasterio.open(POPULATION_DATASET) as src:
         for poi in pois:
+            print(f"Processing {poi}")
             total_population = pop_in_radius(
                 center=Point(poi["lat"], poi["lon"]), radius_km=2.0, dataset=src
             )
@@ -170,9 +177,9 @@ def main():
 
     # test_population()
 
-    test_pop_in_radius()
+    # test_pop_in_radius()
 
-    # add_pop_around_poi()
+    add_pop_around_poi()
 
 
 if __name__ == "__main__":
