@@ -13,9 +13,9 @@ def crawl(
     input_file: Path,
     output_file: Path,
     coordinates: str,
-    zoom: int = 18,
+    zoom: int = 19,
     timeout: float = 1,
-    depth: int = 10,
+    depth: int = 5,
 ):
     logging.info(f"Crawling around the coordinates: {coordinates} with zoom {zoom}")
     call(
