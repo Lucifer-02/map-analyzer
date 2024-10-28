@@ -169,7 +169,7 @@ def add_pop_around_poi():
 
 
 def main():
-    # hoankiem()
+    test_hoankiem()
     # places_within_radius(center=Point(21.019430, 105.836551), radius_km=2.0)
     # test_around_point()
     # test_places_within_radius()
@@ -179,7 +179,7 @@ def main():
 
     # test_pop_in_radius()
 
-    add_pop_around_poi()
+    # add_pop_around_poi()
 
 
 if __name__ == "__main__":
