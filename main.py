@@ -89,7 +89,6 @@ def places_within_radius(
     radius_km: float,
     DISTANCE_SAMPLE_POINTS_KMS: float = 0.9,
 ):
-
     points_on_circle = draw_circle(center=center, radius_km=radius_km)
     sample_points = find_points_in_polygon(points_on_circle, DISTANCE_SAMPLE_POINTS_KMS)
 
@@ -152,9 +151,7 @@ def add_pop_around_poi():
     pois = hanoi_poi.to_dicts()
 
     new_pois = []
-    POPULATION_DATASET = Path(
-        "./datasets/population/vnm_general_2020.tif"
-    )
+    POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
     with rasterio.open(POPULATION_DATASET) as src:
         for poi in pois:
             print(f"Processing {poi}")
