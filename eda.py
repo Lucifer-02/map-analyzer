@@ -4,20 +4,24 @@ import polars as pl
 
 
 def main():
+    df = pl.read_excel(Path("./datasets/original/atm.xlsx"))
+    # print(df.columns)
 
-    df = pl.read_excel("./datasets/results/poi_with_coordinates_full.xlsx")
+    # print(hanoi_atms)
+    # coordinates = hanoi_atms.select(pl.col("LATITUDE", "LONGITUDE"))
+    # print(df.filter(pl.col("LONGITUDE").is_null()))
+    # print(df.filter(pl.col("LATITUDE").eq("")))
+    # print(df.filter(pl.col("ATM_ID").eq("10800236")).select(pl.col("LATITUDE", "LONGITUDE")).to_series().to_list())
 
-    # hanoi_poi = df.filter(pl.col("Address Line 1").str.contains(r"(Ha Noi)|(Hanoi)"))
-
-    # extract link from "Address Line 1" column to get latitude and longitude
-    new_df = df.with_columns(
-        pl.col("link").str.extract(r"@(\d+\.\d+),(\d+\.\d+)", 1).alias("lat"),
-        pl.col("link").str.extract(r"@(\d+\.\d+),(\d+\.\d+)", 2).alias("lon"),
+    valid_df = df.filter(
+        pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
+        pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
     )
+    hanoi_atms = valid_df.filter(pl.col("CITY").str.contains(r"(HANOI)|(HA NOI)"))
+    # print(hanoi_atms)
 
-    # print(hanoi_poi.select(pl.col("Address Line 1")).to_series().to_list())
-
-    new_df.write_excel("poi_with_coordinates_full.xlsx")
+    for i in range(len(hanoi_atms)):
+        print(hanoi_atms["CITY"][i])
 
 
 if __name__ == "__main__":

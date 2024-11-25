@@ -1,11 +1,14 @@
 import logging
 from pathlib import Path
+from pprint import pprint
 
 from geopy.point import Point
 import polars as pl
 import rasterio
+import googlemaps
 
 from engines.gosom_scraper import crawler
+from engines.google_api import places_api
 from lib.utils import find_points_in_polygon, draw_circle, create_cover_from_points
 from lib.population import pop_in_radius, _get_pop
 
@@ -165,8 +168,77 @@ def add_pop_around_poi():
     new_df.write_excel("./datasets/temp/around_poi_with_population.xlsx")
 
 
+def test_google_api():
+    gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
+
+    # Define search parameters
+    location = Point(latitude=21.0212062, longitude=105.8343646)
+    radius = 900
+    place_type = "school"
+    # keyword = "vietcombank"
+
+    results = places_api.nearby_search(
+        client=gmaps,
+        location=location,
+        radius=radius,
+        place_type=place_type,
+        # keyword=keyword,
+    )
+
+    # Process the results
+    print(len(results))
+    for result in results:
+        pprint(result)
+        print("---")
+
+
+def test_near_api():
+    gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
+
+    df = pl.read_excel(Path("./datasets/original/atm.xlsx"))
+    valid_df = df.filter(
+        pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
+        pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
+    )
+    hanoi_atms = valid_df.filter(pl.col("CITY").str.contains(r"(HANOI)|(HA NOI)"))
+
+    around = pl.DataFrame()
+
+    count = 0
+    for i in range(len(hanoi_atms)):
+        try:
+            places_around = places_api.nearby_search(
+                client=gmaps,
+                location=Point(
+                    latitude=hanoi_atms["LATITUDE"][i],
+                    longitude=hanoi_atms["LONGITUDE"][i],
+                ),
+                radius=200,
+                place_type="school",
+            )
+
+            count += len(places_around)
+
+            for place in places_around:
+                record = pl.DataFrame(
+                    {
+                        "center": hanoi_atms["ATM_ID"][i],
+                        "id": place.id,
+                        "lat": place.lat,
+                        "lon": place.lon,
+                        "name": place.name,
+                    }
+                )
+                around = pl.concat([around, record], how="vertical")
+        except ValueError as e:
+            print(f"{e} with record {hanoi_atms.select(pl.all())[i]}")
+
+    print(count)
+    # print(around)
+
+
 def main():
-    test_hoankiem()
+    # test_hoankiem()
     # places_within_radius(center=Point(21.019430, 105.836551), radius_km=2.0)
     # test_around_point()
     # test_places_within_radius()
@@ -177,6 +249,9 @@ def main():
     # test_pop_in_radius()
 
     # add_pop_around_poi()
+
+    # test_google_api()
+    test_near_api()
 
 
 if __name__ == "__main__":

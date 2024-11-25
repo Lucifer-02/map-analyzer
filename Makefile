@@ -1,12 +1,13 @@
 run:
+	clear
 	# python3 ./extract_coordinates.py
-	# python3 ./main.py
+	python3 ./main.py
 	# python3 eda.py
 	# python3 ./population.py
 	# python3 ./viz.py && open ./index.html
 	# python3 ./utils.py
 	# python3 ./post_process.py
-	python3 ./google_api.py
+	# python3 ./google_api.py
 
 # Download population datasets
 dataset:

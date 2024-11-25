@@ -3,8 +3,11 @@ from dataclasses import dataclass
 from pprint import pprint
 from typing import List
 
+from geopy.point import Point
 from googlemaps.client import places_nearby
 import googlemaps
+from googlemaps.convert import latlng
+from torch import long
 
 
 @dataclass(frozen=True)
@@ -31,8 +34,8 @@ def parse_place(response) -> List[DacPlace]:
 
 def nearby_search(
     client: googlemaps.Client,
-    location: tuple,
-    radius: int,
+    location: Point,
+    radius: int,  # meters
     place_type: str,
     keyword: str = "",
 ) -> List[DacPlace]:
@@ -42,7 +45,7 @@ def nearby_search(
 
     while True:
         response = places_nearby(
-            location=location,
+            location=(location.latitude, location.longitude),
             radius=radius,
             type=place_type,
             keyword=keyword,
