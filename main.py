@@ -1,15 +1,22 @@
 import logging
 from pathlib import Path
 from pprint import pprint
+from typing import Dict, List
 
 from geopy.point import Point
 import polars as pl
 import rasterio
 import googlemaps
+from tqdm import tqdm
 
 from engines.gosom_scraper import crawler
 from engines.google_api import places_api
-from lib.utils import find_points_in_polygon, draw_circle, create_cover_from_points
+from lib.utils import (
+    distance,
+    find_points_in_polygon,
+    draw_circle,
+    create_cover_from_points,
+)
 from lib.population import pop_in_radius, _get_pop
 
 
@@ -193,6 +200,10 @@ def test_google_api():
 
 
 def test_near_api():
+    # --------setup--------------
+    RADIUS = 1000
+    POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
+
     gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
 
     df = pl.read_excel(Path("./datasets/original/atm.xlsx"))
@@ -202,39 +213,60 @@ def test_near_api():
     )
     hanoi_atms = valid_df.filter(pl.col("CITY").str.contains(r"(HANOI)|(HA NOI)"))
 
+    # --------start--------------
+
     around = pl.DataFrame()
 
-    count = 0
-    for i in range(len(hanoi_atms)):
+    num_places = 0
+    records: List[Dict] = []
+
+    for i in tqdm(range(len(hanoi_atms[:]))):
+        logging.info(f"Progress {i}/{len(hanoi_atms)}")
         try:
-            places_around = places_api.nearby_search(
-                client=gmaps,
-                location=Point(
-                    latitude=hanoi_atms["LATITUDE"][i],
-                    longitude=hanoi_atms["LONGITUDE"][i],
-                ),
-                radius=200,
-                place_type="school",
+            atm_center = Point(
+                latitude=hanoi_atms["LATITUDE"][i],
+                longitude=hanoi_atms["LONGITUDE"][i],
             )
 
-            count += len(places_around)
-
-            for place in places_around:
-                record = pl.DataFrame(
-                    {
-                        "center": hanoi_atms["ATM_ID"][i],
-                        "id": place.id,
-                        "lat": place.lat,
-                        "lon": place.lon,
-                        "name": place.name,
-                    }
+            places_around: List = []
+            for poi_type in POI_TYPES:
+                logging.info(f"Nearby searching for type {poi_type}")
+                places_around.extend(
+                    places_api.nearby_search(
+                        client=gmaps,
+                        location=atm_center,
+                        radius=RADIUS,
+                        place_type=poi_type,
+                    )
                 )
-                around = pl.concat([around, record], how="vertical")
-        except ValueError as e:
-            print(f"{e} with record {hanoi_atms.select(pl.all())[i]}")
 
-    print(count)
-    # print(around)
+            num_places += len(places_around)
+
+            for place in tqdm(places_around):
+                if (
+                    distance(atm_center, Point(latitude=place.lat, longitude=place.lon))
+                    <= RADIUS
+                ):
+                    records.append(
+                        {
+                            "atm_center_id": hanoi_atms["ATM_ID"][i],
+                            "id": place.id,
+                            "lat": place.lat,
+                            "lon": place.lon,
+                            "name": place.name,
+                            "categories": ",".join(place.categories),
+                        }
+                    )
+
+        except ValueError as e:
+            logging.error(f"{e} with record {hanoi_atms.select(pl.all())[i]}")
+
+    around = pl.DataFrame(records)
+    print(num_places)
+    print(around)
+
+    # save
+    around.write_parquet("./datasets/raw/arounds_atm.parquet")
 
 
 def main():
