@@ -273,13 +273,9 @@ def main():
     # test_around_point()
     # test_places_within_radius()
     # test_around_points()
-
     # test_population()
-
     # test_pop_in_radius()
-
     # add_pop_around_poi()
-
     # test_google_api()
     test_near_api()
 
