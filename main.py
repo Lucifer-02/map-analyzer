@@ -201,7 +201,7 @@ def test_google_api():
 
 def test_near_api():
     # --------setup--------------
-    RADIUS = 1000
+    RADIUS = 2000
     POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
 
     gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
@@ -214,9 +214,6 @@ def test_near_api():
     hanoi_atms = valid_df.filter(pl.col("CITY").str.contains(r"(HANOI)|(HA NOI)"))
 
     # --------start--------------
-
-    around = pl.DataFrame()
-
     num_places = 0
     records: List[Dict] = []
 
@@ -242,7 +239,8 @@ def test_near_api():
 
             num_places += len(places_around)
 
-            for place in tqdm(places_around):
+            # filter all place outside radius
+            for place in places_around:
                 if (
                     distance(atm_center, Point(latitude=place.lat, longitude=place.lon))
                     <= RADIUS

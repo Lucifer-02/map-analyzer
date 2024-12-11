@@ -6,8 +6,6 @@ from typing import List
 from geopy.point import Point
 from googlemaps.client import places_nearby
 import googlemaps
-from googlemaps.convert import latlng
-from torch import long
 
 
 @dataclass(frozen=True)
@@ -68,7 +66,7 @@ if __name__ == "__main__":
     gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
 
     # Define search parameters
-    location = (21.0212062, 105.8343646)
+    location = Point(21.0212062, 105.8343646)
     radius = 1000
     place_type = "atm"
     keyword = "vietcombank"

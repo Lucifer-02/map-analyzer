@@ -191,4 +191,4 @@ go.work.sum
 *.zip
 *.xlsx
 *.pdf
-datasets/population/
+datasets/*
