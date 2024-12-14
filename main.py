@@ -8,6 +8,7 @@ import polars as pl
 import rasterio
 import googlemaps
 from tqdm import tqdm
+import geopandas as gpd
 
 from engines.gosom_scraper import crawler
 from engines.google_api import places_api
@@ -112,26 +113,26 @@ def places_within_radius(
 
 
 def test_population():
-    # COVER = Path("./queries/long_bien.geojson")
-    # aoi = gpd.read_file(COVER)
+    COVER = Path("./queries/long_bien.geojson")
+    cover_area = gpd.read_file(COVER)
 
-    coordinates = [
-        Point(21.081652, 105.841987),
-        Point(21.079282, 105.842232),
-        Point(21.051409, 105.850300),
-        Point(21.006545, 105.874504),
-        Point(21.004943, 105.876736),
-        Point(20.995167, 105.899567),
-        Point(21.004462, 105.910897),
-        Point(21.004622, 105.920510),
-        Point(21.039554, 105.938191),
-        Point(21.070473, 105.925660),
-        Point(21.078321, 105.905575),
-        Point(21.078642, 105.891327),
-        Point(21.066948, 105.866308),
-    ]
+    # coordinates = [
+    #     Point(21.081652, 105.841987),
+    #     Point(21.079282, 105.842232),
+    #     Point(21.051409, 105.850300),
+    #     Point(21.006545, 105.874504),
+    #     Point(21.004943, 105.876736),
+    #     Point(20.995167, 105.899567),
+    #     Point(21.004462, 105.910897),
+    #     Point(21.004622, 105.920510),
+    #     Point(21.039554, 105.938191),
+    #     Point(21.070473, 105.925660),
+    #     Point(21.078321, 105.905575),
+    #     Point(21.078642, 105.891327),
+    #     Point(21.066948, 105.866308),
+    # ]
 
-    cover_area = create_cover_from_points(points=coordinates)
+    # cover_area = create_cover_from_points(points=coordinates)
 
     POPULATION_DATASET = Path(
         "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0_R7_C29.tif"
@@ -273,11 +274,11 @@ def main():
     # test_around_point()
     # test_places_within_radius()
     # test_around_points()
-    # test_population()
+    test_population()
     # test_pop_in_radius()
     # add_pop_around_poi()
     # test_google_api()
-    test_near_api()
+    # test_near_api()
 
 
 if __name__ == "__main__":
