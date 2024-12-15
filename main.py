@@ -12,13 +12,13 @@ import geopandas as gpd
 
 from engines.gosom_scraper import crawler
 from engines.google_api import places_api
-from lib.utils import (
+from mylib.utils import (
     distance,
     find_points_in_polygon,
     draw_circle,
     create_cover_from_points,
 )
-from lib.population import pop_in_radius, _get_pop
+from mylib.population import pop_in_radius, _get_pop
 
 
 def test_hoankiem():
