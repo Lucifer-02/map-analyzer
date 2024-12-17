@@ -2,11 +2,14 @@ import logging
 from pathlib import Path
 from pprint import pprint
 from typing import Dict, List
+import json
 
+from geopandas.geodataframe import shapely
 from geopy.point import Point
 import polars as pl
 import rasterio
 import googlemaps
+from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
 import geopandas as gpd
 
@@ -16,9 +19,64 @@ from mylib.utils import (
     distance,
     find_points_in_polygon,
     draw_circle,
-    create_cover_from_points,
+    points_to_polygon,
 )
 from mylib.population import pop_in_radius, _get_pop
+
+
+def geojson_to_points(geojson_path: Path) -> List[Point]:
+    import json
+
+    # Load the GeoJSON file
+    with open(geojson_path, "r") as f:
+        data = json.load(f)
+
+    # Ensure the top-level GeoJSON object is a FeatureCollection
+    if data.get("type") != "FeatureCollection":
+        raise ValueError("The provided GeoJSON is not a FeatureCollection.")
+
+    points = []
+    for feature in data.get("features", []):
+        geometry = feature.get("geometry", {})
+        # Check that the geometry is indeed a Point
+        if geometry.get("type") == "Point":
+            coords = geometry.get("coordinates", [])
+            if len(coords) >= 2:
+                # GeoJSON coordinates order is [longitude, latitude, (optional altitude)]
+                longitude, latitude = coords[0], coords[1]
+                # If altitude/elevation is provided:
+                altitude = coords[2] if len(coords) > 2 else None
+
+                # Create a geopy Point object
+                point = Point(latitude, longitude, altitude)
+                points.append(point)
+    return points
+
+
+def geojson_to_polygon(data) -> Polygon:
+
+    if data.get("type") != "FeatureCollection":
+        raise ValueError("The provided GeoJSON does not contain a FeatureCollection.")
+
+    features = data.get("features", [])
+    assert len(features) == 1, "currently support parse only one feature"
+
+    geometry = features[0].get("geometry", {})
+    if geometry.get("type") != "Polygon":
+        raise ValueError("This is not a polygon")
+
+    # 'coordinates' for Polygon is an array of linear rings
+    # The first ring is the outer boundary, subsequent ones (if any) are holes
+    # Coordinates are in the format [[lon, lat], [lon, lat], ...]
+    polygon_coords = geometry.get("coordinates", [])
+
+    # polygon_coords[0] should be the outer ring
+    # Shapely expects (x, y) = (longitude, latitude)
+    outer_ring = polygon_coords[0]
+
+    # Create the shapely Polygon
+    poly = Polygon(outer_ring)
+    return poly
 
 
 def test_hoankiem():
@@ -32,7 +90,9 @@ def test_hoankiem():
     ]
 
     DISTANCE_POINTS_KMS = 1.0
-    points = find_points_in_polygon(HOANKIEM_CORNERS, DISTANCE_POINTS_KMS)
+    points = find_points_in_polygon(
+        points_to_polygon(HOANKIEM_CORNERS), DISTANCE_POINTS_KMS
+    )
 
     output_files = [RAW_DATA_DIR / Path(f"area_{i}.csv") for i in range(len(points))]
 
@@ -46,7 +106,9 @@ def test_around_point():
 
     DISTANCE_SAMPLE_POINTS_KMS = 0.9
     circle = draw_circle(center=poi, radius_km=2.0, num_points=4)
-    sample_points = find_points_in_polygon(circle, DISTANCE_SAMPLE_POINTS_KMS)
+    sample_points = find_points_in_polygon(
+        points_to_polygon(circle), DISTANCE_SAMPLE_POINTS_KMS
+    )
 
     query_file = QUERY_DIR / Path("arounds.txt")
     output_files = [
@@ -101,7 +163,9 @@ def places_within_radius(
     DISTANCE_SAMPLE_POINTS_KMS: float = 0.9,
 ):
     points_on_circle = draw_circle(center=center, radius_km=radius_km)
-    sample_points = find_points_in_polygon(points_on_circle, DISTANCE_SAMPLE_POINTS_KMS)
+    sample_points = find_points_in_polygon(
+        points_to_polygon(points_on_circle), DISTANCE_SAMPLE_POINTS_KMS
+    )
 
     query_file = QUERY_DIR / Path("arounds.txt")
     output_files = [
@@ -135,7 +199,8 @@ def test_population():
     # cover_area = create_cover_from_points(points=coordinates)
 
     POPULATION_DATASET = Path(
-        "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0_R7_C29.tif"
+        # "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0_R7_C29.tif"
+        "./datasets/population/vnm_general_2020.tif"
     )
     with rasterio.open(POPULATION_DATASET) as src:
         total_population = _get_pop(src=src, aoi=cover_area)
@@ -268,17 +333,70 @@ def test_near_api():
     around.write_parquet("./datasets/raw/arounds_atm.parquet")
 
 
+def test_area_api():
+    # --------setup--------------
+    RADIUS = 2000
+    POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
+    COVER = Path("./queries/long_bien.geojson")
+    with open(COVER, "r") as f:
+        data = json.load(f)
+    poly = geojson_to_polygon(data)
+    points = find_points_in_polygon(polygon=poly, distance_points_kms=2.0)
+
+    gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
+
+    # --------start--------------
+    num_places = 0
+    records: List[Dict] = []
+
+    for point in tqdm(points):
+        places_around: List = []
+        for poi_type in POI_TYPES:
+            logging.info(f"Nearby searching for type {poi_type}")
+            places_around.extend(
+                places_api.nearby_search(
+                    client=gmaps,
+                    location=point,
+                    radius=RADIUS,
+                    place_type=poi_type,
+                )
+            )
+
+        num_places += len(places_around)
+
+        # filter all place outside radius
+        for place in places_around:
+            if poly.contains(shapely.geometry.Point(place.lon, place.lat)):
+                records.append(
+                    {
+                        "id": place.id,
+                        "lat": place.lat,
+                        "lon": place.lon,
+                        "name": place.name,
+                        "categories": ",".join(place.categories),
+                    }
+                )
+
+    pois = pl.DataFrame(records)
+    print(num_places)
+    print(pois)
+
+    # save
+    pois.write_parquet("./datasets/raw/area_pois.parquet")
+
+
 def main():
     # test_hoankiem()
     # places_within_radius(center=Point(21.019430, 105.836551), radius_km=2.0)
     # test_around_point()
     # test_places_within_radius()
     # test_around_points()
-    test_population()
+    # test_population()
     # test_pop_in_radius()
     # add_pop_around_poi()
     # test_google_api()
     # test_near_api()
+    test_area_api()
 
 
 if __name__ == "__main__":

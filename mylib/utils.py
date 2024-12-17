@@ -1,6 +1,7 @@
 import json
 import matplotlib.pyplot as plt
 from pathlib import Path
+from typing import List
 
 from geopy.point import Point
 from geopy.distance import Distance, geodesic
@@ -39,13 +40,14 @@ def extract_coordinates(table: pl.DataFrame, link_col: str) -> pl.DataFrame:
     )
 
 
-# input is a list of corners of a polygon and distance of each other points, find the points inside the polygon by calculating evenly spaced points inside the rectangle that contains the polygon and check if the point is inside the polygon
-def find_points_in_polygon(
-    corners: list[Point], distance_points_kms: float
-) -> list[Point]:
-    polygon = shapely.geometry.Polygon(
+def points_to_polygon(corners: List[Point]) -> Polygon:
+    return shapely.geometry.Polygon(
         [(corner.longitude, corner.latitude) for corner in corners]
     )
+
+
+# input is a list of corners of a polygon and distance of each other points, find the points inside the polygon by calculating evenly spaced points inside the rectangle that contains the polygon and check if the point is inside the polygon
+def find_points_in_polygon(polygon: Polygon, distance_points_kms: float) -> list[Point]:
 
     # calculate the bounding box of the polygon
     min_lon, min_lat, max_lon, max_lat = polygon.bounds
@@ -78,7 +80,8 @@ def find_points_in_polygon(
                 points.append(point)
 
     # add the corners to the polygon
-    points.extend(corners)
+    # points.extend(corners)
+
 
     return points
 
