@@ -24,36 +24,10 @@ from mylib.utils import (
 from mylib.population import pop_in_radius, _get_pop
 
 
-def geojson_to_points(geojson_path: Path) -> List[Point]:
-    import json
-
-    # Load the GeoJSON file
-    with open(geojson_path, "r") as f:
-        data = json.load(f)
-
-    # Ensure the top-level GeoJSON object is a FeatureCollection
-    if data.get("type") != "FeatureCollection":
-        raise ValueError("The provided GeoJSON is not a FeatureCollection.")
-
-    points = []
-    for feature in data.get("features", []):
-        geometry = feature.get("geometry", {})
-        # Check that the geometry is indeed a Point
-        if geometry.get("type") == "Point":
-            coords = geometry.get("coordinates", [])
-            if len(coords) >= 2:
-                # GeoJSON coordinates order is [longitude, latitude, (optional altitude)]
-                longitude, latitude = coords[0], coords[1]
-                # If altitude/elevation is provided:
-                altitude = coords[2] if len(coords) > 2 else None
-
-                # Create a geopy Point object
-                point = Point(latitude, longitude, altitude)
-                points.append(point)
-    return points
-
-
-def geojson_to_polygon(data) -> Polygon:
+def geojson_to_polygon(data: Dict) -> Polygon:
+    assert all(
+        item in data.keys() for item in ["features", "type"]
+    ), "check valid geojson input"
 
     if data.get("type") != "FeatureCollection":
         raise ValueError("The provided GeoJSON does not contain a FeatureCollection.")
@@ -335,13 +309,13 @@ def test_near_api():
 
 def test_area_api():
     # --------setup--------------
-    RADIUS = 2000
+    RADIUS = 1000
     POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
-    COVER = Path("./queries/long_bien.geojson")
+    COVER = Path("./queries/hanoi_city.geojson")
     with open(COVER, "r") as f:
         data = json.load(f)
     poly = geojson_to_polygon(data)
-    points = find_points_in_polygon(polygon=poly, distance_points_kms=2.0)
+    points = find_points_in_polygon(polygon=poly, distance_points_kms=1.0)
 
     gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
 
@@ -364,7 +338,7 @@ def test_area_api():
 
         num_places += len(places_around)
 
-        # filter all place outside radius
+        # filter all place outside the polygon
         for place in places_around:
             if poly.contains(shapely.geometry.Point(place.lon, place.lat)):
                 records.append(
