@@ -326,7 +326,7 @@ def test_area_api():
     for point in tqdm(points):
         places_around: List = []
         for poi_type in POI_TYPES:
-            logging.info(f"Nearby searching for type {poi_type}")
+            logging.info(f"Nearby searching for type {poi_type} on {point}")
             places_around.extend(
                 places_api.nearby_search(
                     client=gmaps,
