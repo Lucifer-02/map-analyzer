@@ -11,7 +11,6 @@ import geopy
 import polars as pl
 from shapely.geometry import Polygon
 import geopandas as gpd
-import utm
 
 
 def distance(point1: Point, point2: Point) -> Distance:
@@ -82,7 +81,6 @@ def find_points_in_polygon(polygon: Polygon, distance_points_kms: float) -> list
     # add the corners to the polygon
     # points.extend(corners)
 
-
     return points
 
 
@@ -108,7 +106,7 @@ def test_polygon():
         geopy.Point(21.039603, 105.84630),
         geopy.Point(21.042487, 105.85754),
     ]
-    points = find_points_in_polygon(corners, distance_points_kms=0.2)
+    points = find_points_in_polygon(points_to_polygon(corners), distance_points_kms=0.2)
     print(points)
 
     # plot the points
@@ -165,29 +163,6 @@ def test_circle():
     plt.show()
 
 
-def utm_to_decimal_degrees(
-    easting: float,
-    northing: float,
-    zone_number: int = 48,
-    zone_letter: str = "N",
-):
-    """
-    Convert UTM coordinates to Decimal Degrees.
-
-    Args:
-        easting (float): UTM easting coordinate.
-        northing (float): UTM northing coordinate.
-        zone_number (int): UTM zone number.
-        zone_letter (str): UTM zone letter (e.g., 'N' or 'S').
-
-    Returns:
-        Point: Point(latitude, longitude) in decimal degrees.
-    """
-    latitude, longitude = utm.to_latlon(easting, northing, zone_number, zone_letter)
-
-    return Point(latitude=latitude, longitude=longitude)
-
-
 def main():
     # point1 = Point(21.025206, 105.848712)
     # point2 = Point(21.0253751, 105.8512529)
@@ -198,7 +173,7 @@ def main():
         center=geopy.Point(21.025206, 105.848712), radius_km=2.0, num_points=4
     )
     points = find_points_in_polygon(
-        corners=circle,
+        polygon=points_to_polygon(circle),
         distance_points_kms=0.9,
     )
     points.extend(circle)
