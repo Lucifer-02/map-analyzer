@@ -12,6 +12,33 @@ import polars as pl
 from shapely.geometry import Polygon
 import geopandas as gpd
 
+def geojson_to_polygon(data: Dict) -> Polygon:
+    assert all(
+        item in data.keys() for item in ["features", "type"]
+    ), "check valid geojson input"
+
+    if data.get("type") != "FeatureCollection":
+        raise ValueError("The provided GeoJSON does not contain a FeatureCollection.")
+
+    features = data.get("features", [])
+    assert len(features) == 1, "currently support parse only one feature"
+
+    geometry = features[0].get("geometry", {})
+    if geometry.get("type") != "Polygon":
+        raise ValueError("This is not a polygon")
+
+    # 'coordinates' for Polygon is an array of linear rings
+    # The first ring is the outer boundary, subsequent ones (if any) are holes
+    # Coordinates are in the format [[lon, lat], [lon, lat], ...]
+    polygon_coords = geometry.get("coordinates", [])
+
+    # polygon_coords[0] should be the outer ring
+    # Shapely expects (x, y) = (longitude, latitude)
+    outer_ring = polygon_coords[0]
+
+    # Create the shapely Polygon
+    poly = Polygon(outer_ring)
+    return poly
 
 def distance(point1: Point, point2: Point) -> Distance:
     return geodesic(point1, point2)
