@@ -19,6 +19,7 @@ from mylib.utils import (
     find_points_in_polygon,
     draw_circle,
     points_to_polygon,
+    geojson_to_polygon,
 )
 from mylib.population import pop_in_radius, _get_pop
 
@@ -32,7 +33,6 @@ def test_hoankiem():
         Point(21.039603, 105.84630),
         Point(21.042487, 105.85754),
     ]
-
     DISTANCE_POINTS_KMS = 1.0
     points = find_points_in_polygon(
         points_to_polygon(HOANKIEM_CORNERS), DISTANCE_POINTS_KMS
@@ -46,10 +46,13 @@ def test_hoankiem():
 
 
 def test_around_point():
+
     poi = Point(21.019430, 105.836551)
 
-    DISTANCE_SAMPLE_POINTS_KMS = 0.9
-    circle = draw_circle(center=poi, radius_km=2.0, num_points=4)
+    logging.info(f"Starting crawl all places around {poi}")
+
+    DISTANCE_SAMPLE_POINTS_KMS = 0.8
+    circle = draw_circle(center=poi, radius_meters=2000, num_points=4)
     sample_points = find_points_in_polygon(
         points_to_polygon(circle), DISTANCE_SAMPLE_POINTS_KMS
     )
@@ -61,6 +64,8 @@ def test_around_point():
     crawler.crawl_in_area(
         output_files=output_files, query_file=query_file, points=sample_points
     )
+
+    logging.info(f"finished crawl all places around {poi}")
 
 
 def test_places_within_radius():
@@ -85,7 +90,7 @@ def test_around_points():
         pl.col("Address Line 1").str.contains(r"(Ha Noi)|(Hanoi)"),
     )
     # print(hanoi_poi)
-    # logging.info(f"Found {len(hanoi_poi)} POIs in Hanoi")
+    logging.info(f"Found {len(hanoi_poi)} POIs in Hanoi")
 
     # make a list of dictionaries with keys are name,lat,lon
     pois = hanoi_poi.to_dicts()
@@ -106,7 +111,7 @@ def places_within_radius(
     radius_km: float,
     DISTANCE_SAMPLE_POINTS_KMS: float = 0.9,
 ):
-    points_on_circle = draw_circle(center=center, radius_km=radius_km)
+    points_on_circle = draw_circle(center=center, radius_meters=radius_km * 1000)
     sample_points = find_points_in_polygon(
         points_to_polygon(points_on_circle), DISTANCE_SAMPLE_POINTS_KMS
     )
@@ -190,7 +195,7 @@ def test_google_api():
 
     # Define search parameters
     location = Point(latitude=21.0212062, longitude=105.8343646)
-    radius = 900
+    radius = 2000
     place_type = "school"
     # keyword = "vietcombank"
 
@@ -277,15 +282,72 @@ def test_near_api():
     around.write_parquet("./datasets/raw/arounds_atm.parquet")
 
 
+def test_point_radius_api():
+    # --------setup--------------
+    gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
+
+    RADIUS = 2000
+    POI_TYPES = ["atm", "bank", "cafe", "school"]
+
+    poi = Point(21.019430, 105.836551)
+    DISTANCE_SAMPLE_POINTS_KMS = 0.8
+    circle = draw_circle(center=poi, radius_meters=RADIUS, num_points=4)
+    sample_points = find_points_in_polygon(
+        points_to_polygon(circle), DISTANCE_SAMPLE_POINTS_KMS
+    )
+
+    # --------start--------------
+    num_places = 0
+    records: List[Dict] = []
+
+    for point in tqdm(sample_points):
+        places_around: List[places_api.DacPlace] = []
+        for poi_type in POI_TYPES:
+            logging.info(f"Nearby searching for type {poi_type} on {point}")
+            places_around.extend(
+                places_api.nearby_search(
+                    client=gmaps,
+                    location=point,
+                    radius=RADIUS,
+                    place_type=poi_type,
+                )
+            )
+
+        num_places += len(places_around)
+
+        # remove all place outside the circle
+        for place in places_around:
+            if (
+                distance(Point(latitude=place.lat, longitude=place.lon), point).meters
+                <= RADIUS
+            ):
+                records.append(
+                    {
+                        "id": place.id,
+                        "lat": place.lat,
+                        "lon": place.lon,
+                        "name": place.name,
+                        "categories": ",".join(place.categories),
+                    }
+                )
+
+    pois = pl.DataFrame(records)
+    print(num_places)
+    print(pois)
+
+    # save
+    # pois.write_parquet("./datasets/raw/area_pois.parquet")
+
+
 def test_area_api():
     # --------setup--------------
-    RADIUS = 1000
+    RADIUS = 2000
     POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
     COVER = Path("./queries/hanoi_city.geojson")
     with open(COVER, "r") as f:
         data = json.load(f)
     poly = geojson_to_polygon(data)
-    points = find_points_in_polygon(polygon=poly, distance_points_kms=1.0)
+    points = find_points_in_polygon(polygon=poly, distance_points_kms=0.8)
 
     gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
 
@@ -308,7 +370,7 @@ def test_area_api():
 
         num_places += len(places_around)
 
-        # filter all place outside the polygon
+        # remove all place outside the polygon
         for place in places_around:
             if poly.contains(shapely.geometry.Point(place.lon, place.lat)):
                 records.append(
@@ -339,8 +401,9 @@ def main():
     # test_pop_in_radius()
     # add_pop_around_poi()
     # test_google_api()
-    # test_near_api()
-    test_area_api()
+    test_near_api()
+    # test_area_api()
+    # test_point_radius_api()
 
 
 if __name__ == "__main__":

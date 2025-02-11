@@ -1,7 +1,7 @@
 import json
 import matplotlib.pyplot as plt
 from pathlib import Path
-from typing import List
+from typing import List, Dict
 
 from geopy.point import Point
 from geopy.distance import Distance, geodesic
@@ -11,6 +11,7 @@ import geopy
 import polars as pl
 from shapely.geometry import Polygon
 import geopandas as gpd
+
 
 def geojson_to_polygon(data: Dict) -> Polygon:
     assert all(
@@ -40,13 +41,14 @@ def geojson_to_polygon(data: Dict) -> Polygon:
     poly = Polygon(outer_ring)
     return poly
 
+
 def distance(point1: Point, point2: Point) -> Distance:
     return geodesic(point1, point2)
 
 
 # shift point by distance to the directions
-def shift_localtion(point: Point, distance_kms: float, degree: float) -> Point:
-    return geopy.distance.distance(kilometers=distance_kms).destination(
+def shift_localtion(point: Point, distance_meters: float, degree: float) -> Point:
+    return geopy.distance.distance(kilometers=distance_meters / 1000).destination(
         point=point, bearing=degree
     )
 
@@ -116,11 +118,15 @@ def aoi_to_geojson(aoi: gpd.GeoDataFrame, output_file: Path) -> None:
         json.dump(aoi.to_geo_dict(), f)
 
 
-def draw_circle(center: Point, radius_km: float, num_points: int = 4) -> list[Point]:
+def draw_circle(
+    center: Point, radius_meters: float, num_points: int = 4
+) -> list[Point]:
     points = []
     for i in range(num_points):
         degree = 360 * i / num_points
-        point = shift_localtion(point=center, distance_kms=radius_km, degree=degree)
+        point = shift_localtion(
+            point=center, distance_meters=radius_meters, degree=degree
+        )
         points.append(point)
 
     return points
@@ -176,7 +182,7 @@ def test_circle():
     center = geopy.Point(21.025206, 105.848712)
     radius = 2.0
     num_points = 15
-    points = draw_circle(center=center, radius_km=radius, num_points=num_points)
+    points = draw_circle(center=center, radius_meters=radius, num_points=num_points)
     print(points)
 
     # plot the points
@@ -197,7 +203,7 @@ def main():
     # test_polygon()
     # test_circle()
     circle = draw_circle(
-        center=geopy.Point(21.025206, 105.848712), radius_km=2.0, num_points=4
+        center=geopy.Point(21.025206, 105.848712), radius_meters=2.0, num_points=4
     )
     points = find_points_in_polygon(
         polygon=points_to_polygon(circle),

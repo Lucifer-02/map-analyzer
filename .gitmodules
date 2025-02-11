@@ -28,3 +28,6 @@
 [submodule "engines/omkarcloud_scraper/scraper"]
 	path = engines/omkarcloud_scraper/scraper
 	url = https://github.com/omkarcloud/google-maps-scraper
+[submodule "engines/gosom_scraper/google-maps-scraper"]
+	path = engines/gosom_scraper/google-maps-scraper
+	url = https://github.com/gosom/google-maps-scraper

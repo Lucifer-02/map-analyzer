@@ -20,7 +20,7 @@ def crawl(
     logging.info(f"Crawling around the coordinates: {coordinates} with zoom {zoom}")
     call(
         [
-            "/media/lucifer/STORAGE/IMPORTANT/map-analyzer/engines/gosom_scraper/google-maps-scraper",
+            "/media/lucifer/STORAGE/IMPORTANT/map-analyzer/engines/gosom_scraper/the_scraper",
             "-input",
             str(input_file),
             "-results",

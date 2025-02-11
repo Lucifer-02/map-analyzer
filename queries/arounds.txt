@@ -1,3 +1,4 @@
-restaurant
-hospital
+atm
+bank
+cafe
 school
