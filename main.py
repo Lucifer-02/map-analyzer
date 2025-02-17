@@ -4,7 +4,7 @@ from pprint import pprint
 from typing import Dict, List
 import json
 
-from geopandas.geodataframe import shapely
+import shapely
 from geopy.point import Point
 import polars as pl
 import rasterio
@@ -126,7 +126,7 @@ def places_within_radius(
 
 
 def test_population():
-    COVER = Path("./queries/long_bien.geojson")
+    COVER = Path("./queries/ha_noi.geojson")
     cover_area = gpd.read_file(COVER)
 
     # coordinates = [
@@ -148,13 +148,53 @@ def test_population():
     # cover_area = create_cover_from_points(points=coordinates)
 
     POPULATION_DATASET = Path(
-        # "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0_R7_C29.tif"
+        "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0.tif"
+        # "./datasets/population/GHS_POP_E2030_GLOBE_R2023A_4326_3ss_V1_0.tif"
         "./datasets/population/vnm_general_2020.tif"
     )
     with rasterio.open(POPULATION_DATASET) as src:
         total_population = _get_pop(src=src, aoi=cover_area)
 
     print(f"Total population within the area of interest: {total_population}")
+
+
+def test_vietnam_population():
+
+    # Specify the directory path
+    directory = Path("/media/lucifer/STORAGE/IMPORTANT/map-analyzer/queries/")
+
+    META_POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
+
+    GHS_POPULATION_DATASET = Path(
+        "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0_R7_C29.tif"
+    )
+    # List all files (excluding directories)
+    files = [file for file in directory.glob("*.geojson")]  # Lists only .txt files
+
+    areas = []
+    meta = []
+    ghs = []
+
+    for file in tqdm(files):
+        areas.append(file.name)
+        cover_area = gpd.read_file(file)
+        try:
+            with rasterio.open(META_POPULATION_DATASET) as src:
+                total_population = _get_pop(src=src, aoi=cover_area)
+                meta.append(total_population)
+        except ValueError as e:
+            meta.append(-1)
+
+        try:
+            with rasterio.open(GHS_POPULATION_DATASET) as src:
+                total_population = _get_pop(src=src, aoi=cover_area)
+                ghs.append(total_population)
+        except ValueError as e:
+            ghs.append(-1)
+
+    df = pl.DataFrame({"area": areas, "meta": meta, "ghs": ghs})
+    print(df)
+    df.write_csv("pop.csv")
 
 
 def test_pop_in_radius():
@@ -397,13 +437,14 @@ def main():
     # test_around_point()
     # test_places_within_radius()
     # test_around_points()
-    # test_population()
+    test_population()
     # test_pop_in_radius()
     # add_pop_around_poi()
     # test_google_api()
-    test_near_api()
+    # test_near_api()
     # test_area_api()
     # test_point_radius_api()
+    # test_vietnam_population()
 
 
 if __name__ == "__main__":
