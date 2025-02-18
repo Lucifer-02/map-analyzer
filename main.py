@@ -187,7 +187,7 @@ def test_vietnam_population():
                         "population": total_population,
                     }
                 )
-        except ValueError as e:
+        except ValueError:
             result.append(
                 {"city": CITY_MAP[file.name], "source": "meta", "population": -1}
             )
@@ -202,10 +202,11 @@ def test_vietnam_population():
                         "population": total_population,
                     }
                 )
-        except ValueError as e:
+        except ValueError:
             result.append(
                 {"area": CITY_MAP[file.name], "source": "ghs", "population": -1}
             )
+
     TCTK = (
         pl.read_csv(Path("./datasets/population/tctk.csv"))
         .with_columns(pl.lit("tctk").alias("source"))
