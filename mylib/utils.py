@@ -195,6 +195,10 @@ def test_circle():
     )
     plt.show()
 
+def city_mapping() -> Dict[str,str]:
+    with open(f"{Path(__file__).parent}/geo_map.json", "r", encoding="utf-8") as file:
+        data = json.load(file)  # Load JSON data as a Python dictionary or list
+    return data
 
 def main():
     # point1 = Point(21.025206, 105.848712)
@@ -202,22 +206,25 @@ def main():
     # print(distance(point1, point2))
     # test_polygon()
     # test_circle()
-    circle = draw_circle(
-        center=geopy.Point(21.025206, 105.848712), radius_meters=2.0, num_points=4
-    )
-    points = find_points_in_polygon(
-        polygon=points_to_polygon(circle),
-        distance_points_kms=0.9,
-    )
-    points.extend(circle)
-    # display the points
+    # circle = draw_circle(
+    #     center=geopy.Point(21.025206, 105.848712), radius_meters=2.0, num_points=4
+    # )
+    # points = find_points_in_polygon(
+    #     polygon=points_to_polygon(circle),
+    #     distance_points_kms=0.9,
+    # )
+    # points.extend(circle)
+    # # display the points
+    #
+    # plt.plot(
+    #     [point.longitude for point in points],
+    #     [point.latitude for point in points],
+    #     "ro",
+    # )
+    # plt.show()
 
-    plt.plot(
-        [point.longitude for point in points],
-        [point.latitude for point in points],
-        "ro",
-    )
-    plt.show()
+    print(city_mapping())
+
 
 
 if __name__ == "__main__":

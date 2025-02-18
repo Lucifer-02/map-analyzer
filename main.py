@@ -20,6 +20,7 @@ from mylib.utils import (
     draw_circle,
     points_to_polygon,
     geojson_to_polygon,
+    city_mapping,
 )
 from mylib.population import pop_in_radius, _get_pop
 
@@ -150,7 +151,7 @@ def test_population():
     POPULATION_DATASET = Path(
         "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0.tif"
         # "./datasets/population/GHS_POP_E2030_GLOBE_R2023A_4326_3ss_V1_0.tif"
-        "./datasets/population/vnm_general_2020.tif"
+        # "./datasets/population/vnm_general_2020.tif"
     )
     with rasterio.open(POPULATION_DATASET) as src:
         total_population = _get_pop(src=src, aoi=cover_area)
@@ -166,33 +167,54 @@ def test_vietnam_population():
     META_POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
 
     GHS_POPULATION_DATASET = Path(
-        "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0_R7_C29.tif"
+        "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0.tif"
     )
+    CITY_MAP = city_mapping()
     # List all files (excluding directories)
     files = [file for file in directory.glob("*.geojson")]  # Lists only .txt files
 
-    areas = []
-    meta = []
-    ghs = []
+    result = []
 
     for file in tqdm(files):
-        areas.append(file.name)
         cover_area = gpd.read_file(file)
         try:
             with rasterio.open(META_POPULATION_DATASET) as src:
                 total_population = _get_pop(src=src, aoi=cover_area)
-                meta.append(total_population)
+                result.append(
+                    {
+                        "area": CITY_MAP[file.name],
+                        "source": "meta",
+                        "population": total_population,
+                    }
+                )
         except ValueError as e:
-            meta.append(-1)
+            result.append(
+                {"city": CITY_MAP[file.name], "source": "meta", "population": -1}
+            )
 
         try:
             with rasterio.open(GHS_POPULATION_DATASET) as src:
                 total_population = _get_pop(src=src, aoi=cover_area)
-                ghs.append(total_population)
+                result.append(
+                    {
+                        "area": CITY_MAP[file.name],
+                        "source": "ghs",
+                        "population": total_population,
+                    }
+                )
         except ValueError as e:
-            ghs.append(-1)
+            result.append(
+                {"area": CITY_MAP[file.name], "source": "ghs", "population": -1}
+            )
+    TCTK = (
+        pl.read_csv(Path("./datasets/population/tctk.csv"))
+        .with_columns(pl.lit("tctk").alias("source"))
+        .to_dicts()
+    )
 
-    df = pl.DataFrame({"area": areas, "meta": meta, "ghs": ghs})
+    result.extend(TCTK)
+
+    df = pl.DataFrame(result)
     print(df)
     df.write_csv("pop.csv")
 
@@ -437,14 +459,14 @@ def main():
     # test_around_point()
     # test_places_within_radius()
     # test_around_points()
-    test_population()
+    # test_population()
     # test_pop_in_radius()
     # add_pop_around_poi()
     # test_google_api()
     # test_near_api()
     # test_area_api()
     # test_point_radius_api()
-    # test_vietnam_population()
+    test_vietnam_population()
 
 
 if __name__ == "__main__":
