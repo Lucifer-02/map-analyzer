@@ -1,8 +1,13 @@
 from subprocess import call
 from pathlib import Path
 import logging
+from datetime import datetime
+from typing import List
 
 from geopy import Point
+import polars as pl
+
+from .process import prepare
 
 
 def point_to_string(point: Point) -> str:
@@ -10,21 +15,31 @@ def point_to_string(point: Point) -> str:
 
 
 def crawl(
-    input_file: Path,
-    output_file: Path,
+    keywords: List[str],
     coordinates: str,
     zoom: int = 19,
     timeout: float = 1,
     depth: int = 5,
-):
+    ncores: int = 8,
+) -> pl.DataFrame:
     logging.info(f"Crawling around the coordinates: {coordinates} with zoom {zoom}")
+
+    # try to eliminate IO by this hack :)
+    ts = datetime.now().timestamp()
+    input_path = Path(__file__).parent / f"input_{ts}.txt"
+    with open(input_path, "w") as f:
+        for keyword in keywords:
+            f.write(keyword + "\n")
+
+    output_path = Path(__file__).parent / f"output_{ts}.csv"
+
     call(
         [
             "/media/lucifer/STORAGE/IMPORTANT/map-analyzer/engines/gosom_scraper/the_scraper",
             "-input",
-            str(input_file),
+            str(input_path),
             "-results",
-            str(output_file),
+            str(output_path),
             "-geo",
             coordinates,
             "-zoom",
@@ -33,35 +48,37 @@ def crawl(
             str(timeout) + "m",
             "-depth",
             str(depth),
+            "-c",
+            str(ncores),
         ]
     )
 
+    df = prepare(output_path)
+    logging.info(f"Collected {len(df)} places")
 
-def crawl_around_point(
-    point: Point,
-    query_file: Path,
-    output_file: Path,
-):
+    return df
+
+
+def crawl_around_point(keywords: List[str], point: Point) -> pl.DataFrame:
     logging.info(f"Crawling around the point: {point}")
-    crawl(
-        input_file=query_file,
-        output_file=output_file,
+    return crawl(
+        keywords=keywords,
         coordinates=point_to_string(point),
     )
 
 
-def crawl_in_area(points: list[Point], output_files: list[Path], query_file: Path):
-    assert len(points) == len(
-        output_files
-    ), "Number of points and output files must be equal"
-
+def crawl_in_area(points: list[Point], keywords: List[str]) -> pl.DataFrame:
     logging.info(f"Found {len(points)} points in the polygon")
 
+    df = pl.DataFrame()
     for i, point in enumerate(points):
         logging.info(f"Processing point {i+1}/{len(points)}")
 
-        crawl_around_point(
-            point=point,
-            query_file=query_file,
-            output_file=output_files[i],
+        df.vstack(
+            crawl_around_point(
+                point=point,
+                keywords=keywords,
+            )
         )
+
+    return df

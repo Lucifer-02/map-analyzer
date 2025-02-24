@@ -26,8 +26,6 @@ from mylib.population import pop_in_radius, _get_pop
 
 
 def test_hoankiem():
-    query_file = QUERY_DIR / Path("atm.txt")
-
     HOANKIEM_CORNERS = [
         Point(21.019655, 105.86402),
         Point(21.020777, 105.84170),
@@ -39,11 +37,7 @@ def test_hoankiem():
         points_to_polygon(HOANKIEM_CORNERS), DISTANCE_POINTS_KMS
     )
 
-    output_files = [RAW_DATA_DIR / Path(f"area_{i}.csv") for i in range(len(points))]
-
-    crawler.crawl_in_area(
-        output_files=output_files, query_file=query_file, points=points
-    )
+    crawler.crawl_in_area(points=points, keywords=["cafe"])
 
 
 def test_around_point():
@@ -58,12 +52,10 @@ def test_around_point():
         points_to_polygon(circle), DISTANCE_SAMPLE_POINTS_KMS
     )
 
-    query_file = QUERY_DIR / Path("arounds.txt")
-    output_files = [
-        RAW_DATA_DIR / Path(f"around_{i}.csv") for i in range(len(sample_points))
-    ]
-    crawler.crawl_in_area(
-        output_files=output_files, query_file=query_file, points=sample_points
+    print(
+        crawler.crawl_in_area(
+            points=sample_points, keywords=["atm", "school", "cafe", "hospital"]
+        )
     )
 
     logging.info(f"finished crawl all places around {poi}")
@@ -206,7 +198,6 @@ def test_vietnam_population():
             result.append(
                 {"area": CITY_MAP[file.name], "source": "ghs", "population": -1}
             )
-
     TCTK = (
         pl.read_csv(Path("./datasets/population/tctk.csv"))
         .with_columns(pl.lit("tctk").alias("source"))
@@ -457,7 +448,7 @@ def test_area_api():
 def main():
     # test_hoankiem()
     # places_within_radius(center=Point(21.019430, 105.836551), radius_km=2.0)
-    # test_around_point()
+    test_around_point()
     # test_places_within_radius()
     # test_around_points()
     # test_population()
@@ -467,7 +458,7 @@ def main():
     # test_near_api()
     # test_area_api()
     # test_point_radius_api()
-    test_vietnam_population()
+    # test_vietnam_population()
 
 
 if __name__ == "__main__":
