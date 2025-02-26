@@ -1,0 +1,7 @@
+atm
+bank
+cafe
+hospital
+school
+restaurant
+park

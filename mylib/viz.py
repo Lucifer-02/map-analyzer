@@ -1,3 +1,6 @@
+from pathlib import Path
+from typing import List
+
 import matplotlib.pyplot as plt
 
 import folium
@@ -6,20 +9,32 @@ from geopy.point import Point
 from shapely.geometry import Polygon
 
 
-def viz_circle(center: Point, points: list[Point]):
+def map_viz_points(points: List[Point]):
 
-    m = folium.Map(location=[center.latitude, center.longitude], zoom_start=15)
+    m = folium.Map(location=[points[0].latitude, points[0].longitude], zoom_start=15)
 
     # add points to the map
     for point in points:
         folium.Marker([point.latitude, point.longitude]).add_to(m)
 
-    m.save("index.html")
+    OUTPUT = Path("out.html")
+    m.save(OUTPUT)
+    print(f"Open {OUTPUT}")
 
 
 def viz_polygon(polygon: Polygon):
     x, y = polygon.exterior.xy
     plt.plot(x, y, color="green")
+    plt.show()
+
+
+def plot_points(points: List[Point]):
+
+    plt.plot(
+        [point.longitude for point in points],
+        [point.latitude for point in points],
+        "ro",
+    )
     plt.show()
 
 

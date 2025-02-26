@@ -13,6 +13,54 @@ from shapely.geometry import Polygon
 import geopandas as gpd
 
 
+def filter_within_radius(
+    df: pl.DataFrame,
+    lat_col: str,
+    lon_col: str,
+    center: Point,
+    radius_m: float,
+) -> pl.DataFrame:
+    assert len(df) > 0
+
+    new_df = df.with_columns(
+        pl.struct([lat_col, lon_col])
+        .map_elements(lambda x: distance(center, Point(x[lat_col], x[lon_col])).meters)
+        .alias("distance")
+    )
+
+    filtered = new_df.filter(pl.col("distance") <= radius_m).drop("distance")
+
+    assert len(filtered) > 0
+    return filtered
+
+
+def filter_within_polygon(
+    df: pl.DataFrame,
+    poly: Polygon,
+    lat_col: str = "latitude",
+    lon_col: str = "longitude",
+) -> pl.DataFrame:
+    assert len(df) > 0
+
+    new_df = df.with_columns(
+        pl.struct([lat_col, lon_col])
+        .map_elements(
+            lambda x: poly.contains(shapely.geometry.Point(x[lon_col], x[lat_col]))
+        )
+        .alias("is_inside")
+    )
+
+    filtered = new_df.filter(pl.col("is_inside")).drop("is_inside")
+
+    assert len(filtered) > 0
+    return filtered
+
+
+def polygon_to_points(polygon: Polygon) -> List[Point]:
+    # Convert the polygon vertices to geopy Point objects
+    return [Point(lat, lon) for lon, lat in polygon.exterior.coords]
+
+
 def geojson_to_polygon(data: Dict) -> Polygon:
     assert all(
         item in data.keys() for item in ["features", "type"]
@@ -75,21 +123,23 @@ def points_to_polygon(corners: List[Point]) -> Polygon:
 
 
 # input is a list of corners of a polygon and distance of each other points, find the points inside the polygon by calculating evenly spaced points inside the rectangle that contains the polygon and check if the point is inside the polygon
-def find_points_in_polygon(polygon: Polygon, distance_points_kms: float) -> list[Point]:
+def find_points_in_polygon(
+    polygon: Polygon, distance_points_ms: float, include_corners: bool = False
+) -> List[Point]:
 
     # calculate the bounding box of the polygon
     min_lon, min_lat, max_lon, max_lat = polygon.bounds
 
     # calculate the number of points in each direction
-    distance_points = geopy.distance.distance(kilometers=distance_points_kms)
+    points_distance = geopy.distance.distance(kilometers=distance_points_ms / 1000)
     distance_lat = (
-        distance_points.destination(
+        points_distance.destination(
             point=geopy.Point(min_lat, min_lon), bearing=0
         ).latitude
         - min_lat
     )
     distance_lon = (
-        distance_points.destination(
+        points_distance.destination(
             point=geopy.Point(min_lat, min_lon), bearing=90
         ).longitude
         - min_lon
@@ -107,8 +157,9 @@ def find_points_in_polygon(polygon: Polygon, distance_points_kms: float) -> list
             ):
                 points.append(point)
 
-    # add the corners to the polygon
-    # points.extend(corners)
+    if include_corners:
+        # add the corners to the polygon
+        points.extend(polygon_to_points(polygon))
 
     return points
 
@@ -121,6 +172,8 @@ def aoi_to_geojson(aoi: gpd.GeoDataFrame, output_file: Path) -> None:
 def draw_circle(
     center: Point, radius_meters: float, num_points: int = 4
 ) -> list[Point]:
+    assert num_points >= 3, "Must be a polygon"
+
     points = []
     for i in range(num_points):
         degree = 360 * i / num_points
@@ -139,7 +192,7 @@ def test_polygon():
         geopy.Point(21.039603, 105.84630),
         geopy.Point(21.042487, 105.85754),
     ]
-    points = find_points_in_polygon(points_to_polygon(corners), distance_points_kms=0.2)
+    points = find_points_in_polygon(points_to_polygon(corners), distance_points_ms=200)
     print(points)
 
     # plot the points
@@ -195,10 +248,12 @@ def test_circle():
     )
     plt.show()
 
-def city_mapping() -> Dict[str,str]:
+
+def city_mapping() -> Dict[str, str]:
     with open(f"{Path(__file__).parent}/geo_map.json", "r", encoding="utf-8") as file:
         data = json.load(file)  # Load JSON data as a Python dictionary or list
     return data
+
 
 def main():
     # point1 = Point(21.025206, 105.848712)
@@ -224,7 +279,6 @@ def main():
     # plt.show()
 
     print(city_mapping())
-
 
 
 if __name__ == "__main__":

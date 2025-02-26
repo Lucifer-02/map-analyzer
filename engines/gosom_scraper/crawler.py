@@ -3,6 +3,7 @@ from pathlib import Path
 import logging
 from datetime import datetime
 from typing import List
+import os
 
 from geopy import Point
 import polars as pl
@@ -14,15 +15,16 @@ def point_to_string(point: Point) -> str:
     return f"{point.latitude},{point.longitude}"
 
 
+# https://developers.google.com/maps/documentation/urls/get-started
 def crawl(
     keywords: List[str],
-    coordinates: str,
+    center: Point,
     zoom: int = 19,
-    timeout: float = 1,
+    timeout: float = 0.5,
     depth: int = 5,
     ncores: int = 8,
 ) -> pl.DataFrame:
-    logging.info(f"Crawling around the coordinates: {coordinates} with zoom {zoom}")
+    logging.info(f"Crawling around {center.format_decimal()} with zoom {zoom}")
 
     # try to eliminate IO by this hack :)
     ts = datetime.now().timestamp()
@@ -30,9 +32,9 @@ def crawl(
     with open(input_path, "w") as f:
         for keyword in keywords:
             f.write(keyword + "\n")
-
     output_path = Path(__file__).parent / f"output_{ts}.csv"
 
+    # use the crawling tool
     call(
         [
             "/media/lucifer/STORAGE/IMPORTANT/map-analyzer/engines/gosom_scraper/the_scraper",
@@ -41,7 +43,7 @@ def crawl(
             "-results",
             str(output_path),
             "-geo",
-            coordinates,
+            point_to_string(center),
             "-zoom",
             str(zoom),
             "-exit-on-inactivity",
@@ -50,35 +52,35 @@ def crawl(
             str(depth),
             "-c",
             str(ncores),
+            "-debug",
         ]
     )
 
     df = prepare(output_path)
     logging.info(f"Collected {len(df)} places")
 
+    # clean up
+    os.remove(input_path)
+    os.remove(output_path)
+
     return df
 
 
-def crawl_around_point(keywords: List[str], point: Point) -> pl.DataFrame:
-    logging.info(f"Crawling around the point: {point}")
-    return crawl(
-        keywords=keywords,
-        coordinates=point_to_string(point),
-    )
-
-
-def crawl_in_area(points: list[Point], keywords: List[str]) -> pl.DataFrame:
+def crawl_in_area(points: List[Point], keywords: List[str]) -> pl.DataFrame:
     logging.info(f"Found {len(points)} points in the polygon")
 
     df = pl.DataFrame()
     for i, point in enumerate(points):
         logging.info(f"Processing point {i+1}/{len(points)}")
 
-        df.vstack(
-            crawl_around_point(
-                point=point,
+        try:
+            result = crawl(
+                center=point,
                 keywords=keywords,
             )
-        )
+            df.vstack(result, in_place=True)
+        except Exception as e:
+            logging.error(e, stack_info=True)
 
+    assert len(df) > 0
     return df
