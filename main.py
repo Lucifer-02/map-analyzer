@@ -266,7 +266,7 @@ def add_pop_around_poi():
 
 
 def test_google_api():
-    gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
+    gmaps = googlemaps.Client(key="AIzaSyCDPST-2Vz3DBukf4sfkPZwUIUfJdHvwLQ")
 
     # Define search parameters
     location = Point(latitude=21.0212062, longitude=105.8343646)
@@ -291,12 +291,13 @@ def test_google_api():
 
 def test_near_api():
     # --------setup--------------
-    RADIUS = 2000
-    POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
+    RADIUS = 1000
+    POI_TYPES = ["atm", "school"]
 
-    gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
+    gmaps = googlemaps.Client(key="AIzaSyCDPST-2Vz3DBukf4sfkPZwUIUfJdHvwLQ")
 
-    df = pl.read_excel(Path("./datasets/original/atm.xlsx"))
+    # df = pl.read_excel(Path("./datasets/original/atm.xlsx"))
+    df = pl.read_excel(Path("./datasets/original/Mẫu 3 Pool ATM Data.xlsx"))
     valid_df = df.filter(
         pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
         pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
@@ -307,7 +308,7 @@ def test_near_api():
     num_places = 0
     records: List[Dict] = []
 
-    for i in tqdm(range(len(hanoi_atms[:]))):
+    for i in tqdm(range(len(hanoi_atms[:10]))):
         logging.info(f"Progress {i}/{len(hanoi_atms)}")
         try:
             atm_center = Point(
@@ -315,9 +316,8 @@ def test_near_api():
                 longitude=hanoi_atms["LONGITUDE"][i],
             )
 
-            places_around: List = []
+            places_around: List[places_api.DacPlace] = []
             for poi_type in POI_TYPES:
-                logging.info(f"Nearby searching for type {poi_type}")
                 places_around.extend(
                     places_api.nearby_search(
                         client=gmaps,
@@ -338,11 +338,12 @@ def test_near_api():
                     records.append(
                         {
                             "atm_center_id": hanoi_atms["ATM_ID"][i],
-                            "id": place.id,
+                            "id": place.place_id,
                             "lat": place.lat,
                             "lon": place.lon,
                             "name": place.name,
                             "categories": ",".join(place.categories),
+                            "address": place.address,
                         }
                     )
 
@@ -354,12 +355,12 @@ def test_near_api():
     print(around)
 
     # save
-    around.write_parquet("./datasets/raw/arounds_atm.parquet")
+    around.write_parquet("./datasets/raw/arounds_hanoi_atm.parquet")
 
 
 def test_point_radius_api():
     # --------setup--------------
-    gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
+    gmaps = googlemaps.Client(key="AIzaSyCDPST-2Vz3DBukf4sfkPZwUIUfJdHvwLQ")
 
     RADIUS = 2000
     POI_TYPES = ["atm", "bank", "cafe", "school"]
@@ -398,11 +399,12 @@ def test_point_radius_api():
             ):
                 records.append(
                     {
-                        "id": place.id,
+                        "id": place.place_id,
                         "lat": place.lat,
                         "lon": place.lon,
                         "name": place.name,
                         "categories": ",".join(place.categories),
+                        "address": place.address,
                     }
                 )
 
@@ -416,24 +418,26 @@ def test_point_radius_api():
 
 def test_area_api():
     # --------setup--------------
-    RADIUS = 2000
-    POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
-    COVER = Path("./queries/hanoi_city.geojson")
+    RADIUS = 1000
+    # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
+    # POI_TYPES = ["hospital", "school"]
+    COVER = Path("./queries/ha_noi.geojson")
     with open(COVER, "r") as f:
         data = json.load(f)
     poly = geojson_to_polygon(data)
-    points = find_points_in_polygon(polygon=poly, distance_points_ms=0.8)
+    cover_points = find_points_in_polygon(polygon=poly, distance_points_ms=1500)
 
-    gmaps = googlemaps.Client(key="AIzaSyASSHrsakND-N8dCFji0KkESaeyLoWq87Y")
+    gmaps = googlemaps.Client(key="AIzaSyCDPST-2Vz3DBukf4sfkPZwUIUfJdHvwLQ")
 
     # --------start--------------
     num_places = 0
     records: List[Dict] = []
 
-    for point in tqdm(points):
-        places_around: List = []
-        for poi_type in POI_TYPES:
-            logging.info(f"Nearby searching for type {poi_type} on {point}")
+    for i, point in enumerate(cover_points):
+        logging.info(f"Progress: {i+1}/{len(cover_points)}")
+
+        places_around: List[places_api.DacPlace] = []
+        for poi_type in ALL_TYPES:
             places_around.extend(
                 places_api.nearby_search(
                     client=gmaps,
@@ -450,36 +454,46 @@ def test_area_api():
             if poly.contains(shapely.geometry.Point(place.lon, place.lat)):
                 records.append(
                     {
-                        "id": place.id,
+                        "id": place.place_id,
                         "lat": place.lat,
                         "lon": place.lon,
                         "name": place.name,
                         "categories": ",".join(place.categories),
+                        "address": place.address,
                     }
                 )
+
+        logging.info(pl.DataFrame(records))
 
     pois = pl.DataFrame(records)
     print(num_places)
     print(pois)
+    print(pois.unique())
 
     # save
-    pois.write_parquet("./datasets/raw/area_pois.parquet")
+    pois.write_parquet(f"{COVER.stem}.parquet")
 
 
 def test_area_crawl():
     logging.info("Start crawl...")
     # --------setup--------------
-    POI_TYPES = ["atm", "bank", "cafe", "hospital", "school", "restaurant", "park"]
-    COVER = Path("./queries/ha_noi.geojson")
+    # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school", "restaurant", "park"]
+    COVER = Path("./queries/bac_ninh.geojson")
     with open(COVER, "r") as f:
         data = json.load(f)
     poly = geojson_to_polygon(data)
-    points = find_points_in_polygon(polygon=poly, distance_points_ms=3000)
+    points = find_points_in_polygon(polygon=poly, distance_points_ms=2000)
     map_viz_points(points)
 
-    pois = crawler.crawl_in_area(points=points, keywords=POI_TYPES)
+    pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
 
-    print(filter_within_polygon(df=pois, poly=poly))
+    logging.info(
+        f"Result length: {len(pois)}, dedupliced length: {len(pois.unique())}, ratio: {1-(len(pois) / len(pois.unique()))}."
+    )
+    result = filter_within_polygon(df=pois.unique(), poly=poly)
+    logging.info(f"Result: {result}")
+
+    result.write_parquet(Path(f"./datasets/raw/oss/{COVER.stem}.parquet"))
 
 
 def main():
@@ -507,4 +521,116 @@ if __name__ == "__main__":
     )
     RAW_DATA_DIR = Path("./datasets/raw")
     QUERY_DIR = Path("./queries")
+
+    ATTRACTIVES = [
+        [
+            "amusement_park",
+            "airport",
+            "bus_station",
+            "train_station",
+            "transit_station",
+            "store",
+            "post_office",
+            "tourist_attraction",
+            "school",
+            "university",
+            "city_hall",
+            "local_government_office",
+            "courthouse",
+            "embassy",
+            "local_government_office",
+            "museum",
+            "stadium",
+            "gym",
+            "parking",
+            "hospital",
+            "parking",
+            "school",
+            "university",
+        ],
+        [
+            "car_dealer",
+            "hospital",
+            "restaurant",
+            "cafe",
+            "amusement_park",
+            "tourist_attraction",
+            "clothing_store",
+            "movie_theater",
+            "shopping_mall",
+            "supermarket",
+            "shopping_mall",
+            "pharmacy",
+            "book_store",
+            "store",
+            "home_goods_store",
+            "convenience_store",
+            "store",
+            "gas_station",
+            "lodging",
+            "convenience_store",
+        ],
+        [
+            "school",
+            "library",
+            "art_gallery",
+            "police",
+            "place_of_worship",
+        ],
+        ["bank", "atm"],
+    ]
+
+    ALL_TYPES = {
+        "bank",
+        "atm",
+        "school",
+        "library",
+        "art_gallery",
+        "police",
+        "place_of_worship",
+        "car_dealer",
+        "hospital",
+        "restaurant",
+        "cafe",
+        "amusement_park",
+        "tourist_attraction",
+        "clothing_store",
+        "movie_theater",
+        "shopping_mall",
+        "supermarket",
+        "shopping_mall",
+        "pharmacy",
+        "book_store",
+        "store",
+        "home_goods_store",
+        "convenience_store",
+        "store",
+        "gas_station",
+        "lodging",
+        "convenience_store",
+        "amusement_park",
+        "airport",
+        "bus_station",
+        "train_station",
+        "transit_station",
+        "store",
+        "post_office",
+        "tourist_attraction",
+        "school",
+        "university",
+        "city_hall",
+        "local_government_office",
+        "courthouse",
+        "embassy",
+        "local_government_office",
+        "museum",
+        "stadium",
+        "gym",
+        "parking",
+        "hospital",
+        "parking",
+        "school",
+        "university",
+    }
+
     main()

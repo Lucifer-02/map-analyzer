@@ -1,6 +1,6 @@
 run:
 	clear
-	python3 ./main.py && open out.html
+	python3 ./main.py #&& open out.html
 	# python3 eda.py
 
 # Download population datasets

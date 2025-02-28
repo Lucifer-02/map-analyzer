@@ -45,14 +45,18 @@ def filter_within_polygon(
     new_df = df.with_columns(
         pl.struct([lat_col, lon_col])
         .map_elements(
-            lambda x: poly.contains(shapely.geometry.Point(x[lon_col], x[lat_col]))
+            lambda x: poly.contains(shapely.geometry.Point(x[lon_col], x[lat_col])),
+            return_dtype=pl.Boolean,
         )
         .alias("is_inside")
     )
+    print(new_df)
 
     filtered = new_df.filter(pl.col("is_inside")).drop("is_inside")
+    print(filtered)
 
     assert len(filtered) > 0
+    assert len(filtered) < len(df)
     return filtered
 
 
@@ -255,6 +259,19 @@ def city_mapping() -> Dict[str, str]:
     return data
 
 
+def test_filter_within_polygon():
+    df = pl.DataFrame(
+        {"latitude": [20.331948, 21.017354], "longitude": [106.196018, 105.814087]}
+    )
+
+    with open("../queries/ha_noi.geojson", "r") as f:
+        data = json.load(f)
+
+    poly = geojson_to_polygon(data)
+
+    print(filter_within_polygon(df=df, poly=poly))
+
+
 def main():
     # point1 = Point(21.025206, 105.848712)
     # point2 = Point(21.0253751, 105.8512529)
@@ -278,7 +295,9 @@ def main():
     # )
     # plt.show()
 
-    print(city_mapping())
+    # print(city_mapping())
+
+    test_filter_within_polygon()
 
 
 if __name__ == "__main__":

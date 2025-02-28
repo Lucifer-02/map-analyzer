@@ -1,5 +1,0 @@
-atm
-bank
-cafe
-hospital
-school
