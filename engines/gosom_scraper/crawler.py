@@ -3,14 +3,13 @@ from pathlib import Path
 import logging
 from datetime import datetime
 from typing import List
-import os
 import time
 import platform
+import os
+
 
 from geopy import Point
 import polars as pl
-
-from .process import prepare
 
 
 def point_to_string(point: Point) -> str:
@@ -39,9 +38,12 @@ def crawl(
     output_path = Path(__file__).parent / Path(f"output_{ts}.csv")
 
     exe: str = ""
-    if platform.system() == "Windows":
+    OS = platform.system()
+
+    if OS == "Windows":
         exe = f"{Path(__file__).parent}/the_scraper.exe"
-    else:
+
+    if OS == "Linux" or OS == "Darwin":
         exe = f"{Path(__file__).parent}/the_scraper"
 
     start = time.time()
@@ -69,7 +71,7 @@ def crawl(
     end = time.time()
     logging.info(f"Run time: {end - start}")
 
-    df = prepare(output_path)
+    df = pl.read_csv(output_path)
     logging.info(f"Collected {len(df)} places")
 
     # clean up

@@ -513,12 +513,12 @@ def test_area_crawl():
 
     # pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
 
-    FROM_IDX = 230
+    FROM_IDX = 395
 
     for i, point in enumerate(points[FROM_IDX:]):
         save_path = Path(f"./datasets/raw/oss/{COVER.stem}_{i+FROM_IDX}.parquet")
         if save_path.exists() == False:
-            pois = crawler.crawl(center=point, keywords=list(ALL_TYPES), ncores=10)
+            pois = crawler.crawl(center=point, keywords=list(ALL_TYPES), ncores=8)
             result = filter_within_polygon(df=pois, poly=poly)
             logging.info(f"Result after filted all outside the area: {result}")
 
