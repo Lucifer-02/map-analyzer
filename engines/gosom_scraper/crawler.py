@@ -73,8 +73,6 @@ def crawl(
 
 
 def crawl_in_area(points: List[Point], keywords: List[str]) -> pl.DataFrame:
-    logging.info(f"Found {len(points)} points in the polygon")
-
     df = pl.DataFrame()
     for i, point in enumerate(points):
         logging.info(f"Processing point {i+1}/{len(points)}")

@@ -86,18 +86,40 @@ def test_crawl_area():
     logging.info(f"Finished crawl all places around {poi}")
 
 
-def test_places_within_radius():
-    df = pl.read_excel("./datasets/results/poi_with_coordinates_full.xlsx")
-    hanoi_poi = df.filter(pl.col("Address Line 1").str.contains(r"(Ha Noi)|(Hanoi)"))
+def test_crawl_atm_places_within_radius():
+    # PDG
+    # df = pl.read_excel("./datasets/results/poi_with_coordinates_full.xlsx")
+    # hanoi_poi = df.filter(pl.col("Address Line 1").str.contains(r"(Ha Noi)|(Hanoi)"))
+    # pois = hanoi_poi.to_dicts()
 
+    # ATM
+    df = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx")
+
+    valid_df = df.filter(
+        pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
+        pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
+    )
+    filted = valid_df.filter(pl.col("CITY").str.contains(r"(HANOI)|(HA NOI)"))
+    atms = filted.to_dicts()
+
+    logging.info(f"There are {len(atms)} ATMs.")
+
+    START_IDX = 0
     # make a list of dictionaries with keys are name,lat,lon
-    pois = hanoi_poi.to_dicts()
-
-    for poi in pois:
-        places_within_radius(
-            center=Point(poi["lat"], poi["lon"]),
-            radius_m=2000,
+    for i, poi in enumerate(atms[START_IDX:]):
+        output = Path(
+            f'./datasets/raw/oss/atms/ha_noi/atm_{poi["ATM_ID"]}_{START_IDX + i}.parquet'
         )
+        if output.exists() == False:
+            result = crawl_places_within_radius(
+                center=Point(latitude=poi["LATITUDE"], longitude=poi["LONGITUDE"]),
+                radius_m=2000,
+                categories=list(ALL_TYPES),
+            )
+            result.write_parquet(output)
+            logging.info(
+                f'Written result for ATM id {poi["ATM_ID"]} with lat: {poi["LATITUDE"]} and lon: {poi["LONGITUDE"]} to {output}.'
+            )
 
 
 def test_around_points():
@@ -116,26 +138,30 @@ def test_around_points():
         crawler.crawl(center=Point(poi["lat"], poi["lon"]), keywords=["atm"])
 
 
-def places_within_radius(
+def crawl_places_within_radius(
     center: Point,
     radius_m: float,
-    DISTANCE_SAMPLE_POINTS_KMS: float = 0.5,
+    categories: List[str],
+    DISTANCE_SAMPLE_POINTS_MS: float = 1000,
 ):
     points_on_circle = draw_circle(center=center, radius_meters=radius_m)
     sample_points = find_points_in_polygon(
-        points_to_polygon(points_on_circle), DISTANCE_SAMPLE_POINTS_KMS
+        polygon=points_to_polygon(points_on_circle),
+        distance_points_ms=DISTANCE_SAMPLE_POINTS_MS,
+    )
+    map_viz_points(sample_points)
+    logging.info(
+        f"Found {len(sample_points)} sample points around {center.format_decimal()}"
     )
 
-    df = crawler.crawl_in_area(points=sample_points, keywords=["school"])
+    df = crawler.crawl_in_area(points=sample_points, keywords=categories)
 
-    print(
-        filter_within_radius(
-            df,
-            lat_col="latitude",
-            lon_col="longitude",
-            radius_m=radius_m,
-            center=center,
-        )
+    return filter_within_radius(
+        df,
+        lat_col="latitude",
+        lon_col="longitude",
+        radius_m=radius_m,
+        center=center,
     )
 
 
@@ -478,29 +504,31 @@ def test_area_crawl():
     logging.info("Start crawl...")
     # --------setup--------------
     # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school", "restaurant", "park"]
-    COVER = Path("./queries/bac_ninh.geojson")
+    COVER = Path("./queries/ha_noi.geojson")
     with open(COVER, "r") as f:
         data = json.load(f)
     poly = geojson_to_polygon(data)
     points = find_points_in_polygon(polygon=poly, distance_points_ms=2000)
-    map_viz_points(points)
+    # map_viz_points(points)
 
-    pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
+    # pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
 
-    logging.info(
-        f"Result length: {len(pois)}, dedupliced length: {len(pois.unique())}, ratio: {1-(len(pois) / len(pois.unique()))}."
-    )
-    result = filter_within_polygon(df=pois.unique(), poly=poly)
-    logging.info(f"Result: {result}")
+    FROM_IDX = 230
 
-    result.write_parquet(Path(f"./datasets/raw/oss/{COVER.stem}.parquet"))
+    for i, point in enumerate(points[FROM_IDX:]):
+        save_path = Path(f"./datasets/raw/oss/{COVER.stem}_{i+FROM_IDX}.parquet")
+        if save_path.exists() == False:
+            pois = crawler.crawl(center=point, keywords=list(ALL_TYPES), ncores=10)
+            result = filter_within_polygon(df=pois, poly=poly)
+            logging.info(f"Result after filted all outside the area: {result}")
+
+            result.write_parquet(save_path)
 
 
 def main():
     # test_hoankiem()
     # places_within_radius(center=Point(21.019430, 105.836551), radius_km=2.0)
     # test_around_point()
-    # test_places_within_radius()
     # test_around_points()
     # test_population()
     # test_pop_in_radius()
@@ -511,6 +539,7 @@ def main():
     # test_point_radius_api()
     # test_vietnam_population()
     test_area_crawl()
+    # test_crawl_atm_places_within_radius()
 
 
 if __name__ == "__main__":
