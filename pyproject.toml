@@ -16,6 +16,7 @@ dependencies = [
     "jupyterlab>=4.3.3",
     "matplotlib>=3.10.0",
     "numpy>=2.2.0",
+    "pipreqs>=0.4.13",
     "polars>=1.17.1",
     "pyarrow>=19.0.1",
     "pyqt5>=5.15.11",

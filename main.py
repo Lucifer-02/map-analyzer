@@ -448,7 +448,7 @@ def test_area_api():
     # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
     # POI_TYPES = ["hospital", "school"]
     COVER = Path("./queries/ha_noi.geojson")
-    with open(COVER, "r") as f:
+    with open(COVER, "r", encoding="utf8") as f:
         data = json.load(f)
     poly = geojson_to_polygon(data)
     cover_points = find_points_in_polygon(polygon=poly, distance_points_ms=1500)
@@ -505,7 +505,7 @@ def test_area_crawl():
     # --------setup--------------
     # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school", "restaurant", "park"]
     COVER = Path("./queries/ha_noi.geojson")
-    with open(COVER, "r") as f:
+    with open(COVER, "r", encoding="utf8") as f:
         data = json.load(f)
     poly = geojson_to_polygon(data)
     points = find_points_in_polygon(polygon=poly, distance_points_ms=2000)

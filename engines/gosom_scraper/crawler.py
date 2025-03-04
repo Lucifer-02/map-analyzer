@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List
 import os
 import time
+import platform
 
 from geopy import Point
 import polars as pl
@@ -37,11 +38,17 @@ def crawl(
             f.write(keyword + "\n")
     output_path = Path(__file__).parent / Path(f"output_{ts}.csv")
 
+    exe: str = ""
+    if platform.system() == "Windows":
+        exe = f"{Path(__file__).parent}/the_scraper.exe"
+    else:
+        exe = f"{Path(__file__).parent}/the_scraper"
+
     start = time.time()
     # use the crawling tool
     call(
         [
-            "/media/lucifer/STORAGE/IMPORTANT/map-analyzer/engines/gosom_scraper/the_scraper",
+            exe,
             "-input",
             str(input_path),
             "-results",

@@ -193,3 +193,7 @@ go.work.sum
 *.pdf
 datasets/*
 *.db
+*.parquet
+pyproject.toml
+uv.lock
+!requirements.txt
