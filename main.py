@@ -291,7 +291,7 @@ def add_pop_around_poi():
     new_df.write_excel("./datasets/temp/around_poi_with_population.xlsx")
 
 
-def test_google_api():
+def test_api():
     gmaps = googlemaps.Client(key="AIzaSyCDPST-2Vz3DBukf4sfkPZwUIUfJdHvwLQ")
 
     # Define search parameters
@@ -315,7 +315,7 @@ def test_google_api():
         print("---")
 
 
-def test_near_api():
+def test_api_near():
     # --------setup--------------
     RADIUS = 1000
     POI_TYPES = ["atm", "school"]
@@ -384,7 +384,7 @@ def test_near_api():
     around.write_parquet("./datasets/raw/arounds_hanoi_atm.parquet")
 
 
-def test_point_radius_api():
+def test_api_point_radius():
     # --------setup--------------
     gmaps = googlemaps.Client(key="AIzaSyCDPST-2Vz3DBukf4sfkPZwUIUfJdHvwLQ")
 
@@ -442,7 +442,7 @@ def test_point_radius_api():
     # pois.write_parquet("./datasets/raw/area_pois.parquet")
 
 
-def test_area_api():
+def test_api_area():
     # --------setup--------------
     RADIUS = 1000
     # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
@@ -513,7 +513,7 @@ def test_area_crawl():
 
     # pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
 
-    FROM_IDX = 555
+    FROM_IDX = 556
 
     for i, point in enumerate(points[FROM_IDX:]):
         logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])}...")
