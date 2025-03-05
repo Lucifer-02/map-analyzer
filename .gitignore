@@ -199,3 +199,4 @@ uv.lock
 !requirements.txt
 input*.txt
 output*.csv
+!google_maps_scraper-1.7.10-windows-amd64.exe
