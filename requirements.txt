@@ -102,9 +102,6 @@ pygments==2.19.1
 pyogrio==0.10.0
 pyparsing==3.2.1
 pyproj==3.7.1
-pyqt5==5.15.11
-pyqt5-qt5==5.15.16
-pyqt5-sip==12.17.0
 python-dateutil==2.9.0.post0
 python-json-logger==3.2.1
 pytz==2025.1
