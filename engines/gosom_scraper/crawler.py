@@ -11,6 +11,8 @@ import os
 from geopy import Point
 import polars as pl
 
+from .process import prepare
+
 
 def point_to_string(point: Point) -> str:
     return f"{point.latitude},{point.longitude}"
@@ -71,7 +73,7 @@ def crawl(
     end = time.time()
     logging.info(f"Run time: {end - start}")
 
-    df = pl.read_csv(output_path)
+    df = prepare(output_path)
     logging.info(f"Collected {len(df)} places")
 
     # clean up

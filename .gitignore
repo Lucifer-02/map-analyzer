@@ -197,3 +197,5 @@ datasets/*
 pyproject.toml
 uv.lock
 !requirements.txt
+input*.txt
+output*.csv
