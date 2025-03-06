@@ -24,7 +24,10 @@ def filter_within_radius(
 
     new_df = df.with_columns(
         pl.struct([lat_col, lon_col])
-        .map_elements(lambda x: distance(center, Point(x[lat_col], x[lon_col])).meters)
+        .map_elements(
+            lambda x: distance(center, Point(x[lat_col], x[lon_col])).meters,
+            return_dtype=pl.Float64,
+        )
         .alias("distance")
     )
 

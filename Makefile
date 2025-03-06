@@ -2,6 +2,7 @@ run:
 	clear
 	python3 ./main.py #&& open out.html
 	# python3 eda.py
+	# uv run test.py
 
 # Download population datasets
 dataset:

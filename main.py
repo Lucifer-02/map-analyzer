@@ -26,6 +26,7 @@ from mylib.utils import (
 )
 from mylib.population import pop_in_radius, _get_pop
 from mylib.viz import map_viz_points
+from mylib import utils
 
 
 def test_hoankiem():
@@ -513,7 +514,7 @@ def test_area_crawl():
 
     # pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
 
-    FROM_IDX = 556
+    FROM_IDX = 730
 
     for i, point in enumerate(points[FROM_IDX:]):
         logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])}...")
@@ -524,6 +525,51 @@ def test_area_crawl():
             logging.info(f"Result after filted all outside the area: {result}")
 
             result.write_parquet(save_path)
+
+
+def post_process_atm():
+
+    # ATM
+    df = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx")
+
+    valid_df = df.filter(
+        pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
+        pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
+    )
+    filted = valid_df.filter(pl.col("CITY").str.contains(r"(HANOI)|(HA NOI)"))
+    atms = filted.to_dicts()
+
+    # print(atms)
+    files = list(Path("./datasets/raw/oss/").glob("ha_noi_*.parquet"))
+
+    dfs = [pl.read_parquet(file) for file in files]
+
+    places = pl.concat(dfs).unique(subset=["link"])
+
+    for atm in atms:
+        try:
+            result = utils.filter_within_radius(
+                places,
+                lat_col="latitude",
+                lon_col="longitude",
+                center=Point(latitude=atm["LATITUDE"], longitude=atm["LONGITUDE"]),
+                radius_m=1000,
+            )
+            print(atm["ADR_01"] + atm["ADR_02"], len(result))
+            # break
+        except ValueError as e:
+            print(
+                f'===========================Error: {e}, point: {atm["LATITUDE"], atm["LONGITUDE"]}'
+            )
+
+    # logging.info(f"There are {len(atms)} ATMs.")
+    #
+    # START_IDX = 0
+    # # make a list of dictionaries with keys are name,lat,lon
+    # for i, poi in enumerate(atms[START_IDX:]):
+    #     output = Path(
+    #         f'./datasets/raw/oss/atms/ha_noi/atm_{poi["ATM_ID"]}_{START_IDX + i}.parquet'
+    #     )
 
 
 def main():
@@ -539,8 +585,9 @@ def main():
     # test_area_api()
     # test_point_radius_api()
     # test_vietnam_population()
-    test_area_crawl()
+    # test_area_crawl()
     # test_crawl_atm_places_within_radius()
+    post_process_atm()
 
 
 if __name__ == "__main__":
