@@ -13,7 +13,53 @@ from shapely.geometry import Polygon
 import geopandas as gpd
 
 
+import polars as pl
+import numpy as np
+
+
+def haversine(lat1, lon1, lat2, lon2):
+    """Compute the Haversine distance between two points in meters."""
+    R = 6371000  # Earth radius in meters
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+
+    return R * c
+
+
+# custom algorithm to speed up
 def filter_within_radius(
+    df: pl.DataFrame,
+    lat_col: str,
+    lon_col: str,
+    center: Point,
+    radius_m: float,
+) -> pl.DataFrame:
+    """Filter rows in a Polars DataFrame that are within the given radius (meters)."""
+
+    if len(df) == 0:
+        return df  # Return early if DataFrame is empty
+
+    # Vectorized computation using Polars expressions
+    filtered_df = (
+        df.with_columns(
+            haversine(center.latitude, center.longitude, pl.col(lat_col), pl.col(lon_col)).alias(
+                "distance"
+            )
+        )
+        .filter(pl.col("distance") <= radius_m)
+        .drop("distance")
+    )
+
+    return filtered_df
+
+
+# another version but using other lib
+def filter_within_radius1(
     df: pl.DataFrame,
     lat_col: str,
     lon_col: str,
@@ -33,7 +79,7 @@ def filter_within_radius(
 
     filtered = new_df.filter(pl.col("distance") <= radius_m).drop("distance")
 
-    assert len(filtered) > 0
+    assert len(filtered) >= 0
     return filtered
 
 

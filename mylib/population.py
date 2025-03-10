@@ -10,9 +10,9 @@ from .utils import draw_circle, create_cover_from_points
 
 
 def pop_in_radius(
-    center: Point, radius_km: float, dataset: rasterio.DatasetReader
+    center: Point, radius_meters: float, dataset: rasterio.DatasetReader
 ) -> float:
-    points = draw_circle(center=center, radius_km=radius_km, num_points=8)
+    points = draw_circle(center=center, radius_meters=radius_meters, num_points=8)
 
     cover_area = create_cover_from_points(points=points)
 

@@ -26,7 +26,7 @@ from mylib.utils import (
 )
 from mylib.population import pop_in_radius, _get_pop
 from mylib.viz import map_viz_points
-from mylib import utils
+from mylib import GROUPS, utils
 
 
 def test_hoankiem():
@@ -514,23 +514,52 @@ def test_area_crawl():
 
     # pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
 
-    FROM_IDX = 730
+    FROM_IDX = 0
+
+    from mylib import TYPE_ATTRACTIVES
 
     for i, point in enumerate(points[FROM_IDX:]):
-        logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])}...")
-        save_path = Path(f"./datasets/raw/oss/{COVER.stem}_{i+FROM_IDX}.parquet")
-        if save_path.exists() == False:
-            pois = crawler.crawl(center=point, keywords=list(ALL_TYPES), ncores=10)
-            result = filter_within_polygon(df=pois, poly=poly)
-            logging.info(f"Result after filted all outside the area: {result}")
+        for group_id, categories in enumerate(TYPE_ATTRACTIVES):
+            logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])}...")
+            save_path = Path(
+                f"./datasets/raw/oss/{COVER.stem}_{group_id}_{i+FROM_IDX}.parquet"
+            )
+            if save_path.exists() == False:
+                pois = crawler.crawl(center=point, keywords=categories, ncores=8)
+                result = filter_within_polygon(df=pois, poly=poly)
+                logging.info(f"Result after filted all outside the area: {result}")
 
-            result.write_parquet(save_path)
+                result.write_parquet(save_path)
 
 
+def classify_group(categories: List[str], group_dict: Dict[str, List]) -> List[str]:
+
+    result = []
+
+    for key in group_dict.keys():
+        for category in categories:
+            if category.lower() in group_dict[key]:
+                result.append(key)
+            else:
+                elements = category.lower().split(" ")
+                for element in elements:
+                    if element in group_dict[key]:
+                        result.append(key)
+
+    # if result == []:
+    #     logging.info(f"Empty {categories}")
+    # else:
+    #     logging.info(f"Result: {result}, categories: {categories}")
+
+    return list(set(result))
+
+
+# adhoc
 def post_process_atm():
 
     # ATM
     df = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx")
+    POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
 
     valid_df = df.filter(
         pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
@@ -546,30 +575,81 @@ def post_process_atm():
 
     places = pl.concat(dfs).unique(subset=["link"])
 
-    for atm in atms:
+    from mylib import GROUPS
+
+    places_group = places.with_columns(
+        pl.col("categories")
+        .map_elements(
+            lambda x: classify_group(categories=x.split(", "), group_dict=GROUPS),
+            return_dtype=list[str],
+        )
+        .alias("group")
+    )
+
+    result = pl.DataFrame()
+
+    for atm in tqdm(atms):
+        logging.info(f'Adding groups count for ATM {atm["ATM_ID"]}')
         try:
-            result = utils.filter_within_radius(
-                places,
-                lat_col="latitude",
-                lon_col="longitude",
-                center=Point(latitude=atm["LATITUDE"], longitude=atm["LONGITUDE"]),
-                radius_m=1000,
-            )
-            print(atm["ADR_01"] + atm["ADR_02"], len(result))
-            # break
-        except ValueError as e:
-            print(
-                f'===========================Error: {e}, point: {atm["LATITUDE"], atm["LONGITUDE"]}'
+            center = Point(
+                latitude=atm["LATITUDE"],
+                longitude=atm["LONGITUDE"],
             )
 
-    # logging.info(f"There are {len(atms)} ATMs.")
-    #
-    # START_IDX = 0
-    # # make a list of dictionaries with keys are name,lat,lon
-    # for i, poi in enumerate(atms[START_IDX:]):
-    #     output = Path(
-    #         f'./datasets/raw/oss/atms/ha_noi/atm_{poi["ATM_ID"]}_{START_IDX + i}.parquet'
-    #     )
+            pois = utils.filter_within_radius(
+                places_group,
+                lat_col="latitude",
+                lon_col="longitude",
+                radius_m=2000,
+                center=center,
+            )
+            count_pois = pois.explode("group").group_by("group").len().drop_nulls()
+
+            atm.update(
+                {
+                    count_pois.filter(pl.col("group").eq("group1"))
+                    .row(0)[0]: count_pois.filter(pl.col("group").eq("group1"))
+                    .row(0)[1],
+                    count_pois.filter(pl.col("group").eq("group2"))
+                    .row(0)[0]: count_pois.filter(pl.col("group").eq("group2"))
+                    .row(0)[1],
+                    count_pois.filter(pl.col("group").eq("group3"))
+                    .row(0)[0]: count_pois.filter(pl.col("group").eq("group3"))
+                    .row(0)[1],
+                    count_pois.filter(pl.col("group").eq("group4"))
+                    .row(0)[0]: count_pois.filter(pl.col("group").eq("group4"))
+                    .row(0)[1],
+                }
+            )
+            with_groups = pl.DataFrame(atm)
+            # print(with_groups)
+
+            with rasterio.open(POPULATION_DATASET) as src:
+                total_population = pop_in_radius(
+                    center=center, radius_meters=2000, dataset=src
+                )
+                with_groups_pop = with_groups.hstack(
+                    [pl.Series("population(radius 2 kms)", [total_population])]
+                )
+
+            result.vstack(with_groups_pop, in_place=True)
+
+        except ValueError as e:
+            logging.error(
+                f'Error: {e}, ATM id: {atm["ATM_ID"]}, point: {atm["LATITUDE"], atm["LONGITUDE"]}',
+                stack_info=True,
+            )
+        except pl.exceptions.OutOfBoundsError as e:
+            logging.error(
+                f'Not found groups in ATM id: {atm["ATM_ID"]}, point: {atm["LATITUDE"], atm["LONGITUDE"]}, Error: {e}',
+                stack_info=True,
+            )
+
+    print(result)
+
+    logging.info(f"Finished adding to {len(result)} ATMs")
+
+    result.write_excel("./datasets/results/atms.xlsx")
 
 
 def main():
@@ -585,9 +665,9 @@ def main():
     # test_area_api()
     # test_point_radius_api()
     # test_vietnam_population()
-    # test_area_crawl()
+    test_area_crawl()
     # test_crawl_atm_places_within_radius()
-    post_process_atm()
+    # post_process_atm()
 
 
 if __name__ == "__main__":
@@ -598,116 +678,5 @@ if __name__ == "__main__":
     )
     RAW_DATA_DIR = Path("./datasets/raw")
     QUERY_DIR = Path("./queries")
-
-    ATTRACTIVES = [
-        [
-            "amusement_park",
-            "airport",
-            "bus_station",
-            "train_station",
-            "transit_station",
-            "store",
-            "post_office",
-            "tourist_attraction",
-            "school",
-            "university",
-            "city_hall",
-            "local_government_office",
-            "courthouse",
-            "embassy",
-            "local_government_office",
-            "museum",
-            "stadium",
-            "gym",
-            "parking",
-            "hospital",
-            "parking",
-            "school",
-            "university",
-        ],
-        [
-            "car_dealer",
-            "hospital",
-            "restaurant",
-            "cafe",
-            "amusement_park",
-            "tourist_attraction",
-            "clothing_store",
-            "movie_theater",
-            "shopping_mall",
-            "supermarket",
-            "shopping_mall",
-            "pharmacy",
-            "book_store",
-            "store",
-            "home_goods_store",
-            "convenience_store",
-            "store",
-            "gas_station",
-            "lodging",
-            "convenience_store",
-        ],
-        [
-            "school",
-            "library",
-            "art_gallery",
-            "police",
-            "place_of_worship",
-        ],
-        ["bank", "atm"],
-    ]
-
-    ALL_TYPES = {
-        "bank",
-        "atm",
-        "school",
-        "library",
-        "art_gallery",
-        "police",
-        "place_of_worship",
-        "car_dealer",
-        "hospital",
-        "restaurant",
-        "cafe",
-        "amusement_park",
-        "tourist_attraction",
-        "clothing_store",
-        "movie_theater",
-        "shopping_mall",
-        "supermarket",
-        "shopping_mall",
-        "pharmacy",
-        "book_store",
-        "store",
-        "home_goods_store",
-        "convenience_store",
-        "store",
-        "gas_station",
-        "lodging",
-        "convenience_store",
-        "amusement_park",
-        "airport",
-        "bus_station",
-        "train_station",
-        "transit_station",
-        "store",
-        "post_office",
-        "tourist_attraction",
-        "school",
-        "university",
-        "city_hall",
-        "local_government_office",
-        "courthouse",
-        "embassy",
-        "local_government_office",
-        "museum",
-        "stadium",
-        "gym",
-        "parking",
-        "hospital",
-        "parking",
-        "school",
-        "university",
-    }
 
     main()

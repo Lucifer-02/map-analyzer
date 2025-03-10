@@ -1,6 +1,6 @@
 run:
 	clear
-	python3 ./main.py #&& open out.html
+	uv run ./main.py
 	# python3 eda.py
 	# uv run test.py
 
