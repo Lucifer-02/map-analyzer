@@ -13,6 +13,7 @@ dependencies = [
     "google-maps-places>=0.1.23",
     "googlemaps>=4.10.0",
     "ipython>=8.30.0",
+    "jinja2>=3.1.5",
     "jupyterlab>=4.3.3",
     "matplotlib>=3.10.0",
     "numpy>=2.2.0",
