@@ -509,22 +509,19 @@ def test_area_crawl():
 
     # pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
 
-    FROM_IDX = 45
-
+    categories = set().union(*TYPE_ATTRACTIVES)
+    FROM_IDX = 0
     for i, point in enumerate(points[FROM_IDX:]):
-        for group_id, categories in enumerate(TYPE_ATTRACTIVES):
-            logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])}...")
-            save_path = Path(
-                f"./datasets/raw/oss/{COVER.stem}_{group_id}_{i+FROM_IDX}.parquet"
-            )
-            if save_path.exists() == False:
-                pois = crawler.crawl(center=point, keywords=categories, ncores=4)
-                result = filter_within_polygon(df=pois, poly=poly)
-                logging.info(f"Result after filted all outside the area: {result}")
+        logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])}...")
+        save_path = Path(f"./datasets/raw/oss/{COVER.stem}_{i+FROM_IDX}.parquet")
+        if save_path.exists() == False:
+            pois = crawler.crawl(center=point, keywords=categories, ncores=8)
+            result = filter_within_polygon(df=pois, poly=poly)
+            logging.info(f"Result after filted all outside the area: {result}")
 
-                result.write_parquet(save_path)
-            else:
-                logging.info(f"The dataset already exists, skipping...")
+            result.write_parquet(save_path)
+        else:
+            logging.info(f"The dataset {save_path} already exists, skipping...")
 
 
 def classify_group(categories: List[str], group_dict: Dict[str, List]) -> List[str]:

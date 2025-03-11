@@ -36,7 +36,9 @@ def crawl(
     input_path = Path(__file__).parent / Path(f"input_{ts}.txt")
     with open(input_path, "w") as f:
         for keyword in keywords:
-            f.write(keyword + "\n")
+            f.write(
+                f"{keyword} #!#{keyword}\n"
+            )  # '#!#' for custom input id, see the repo doc
     output_path = Path(__file__).parent / Path(f"output_{ts}.csv")
 
     exe: str = ""

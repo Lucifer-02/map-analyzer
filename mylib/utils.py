@@ -335,7 +335,7 @@ def test_filter_within_polygon():
     #     {"latitude": [20.331948, 21.017354], "longitude": [106.196018, 105.814087]}
     # )
 
-    df = pl.read_parquet("../datasets/raw/oss/ha_noi_3_51.parquet")
+    df = pl.read_parquet("../datasets/raw/oss/ha_noi_100.parquet")
     print(len(df))
 
     with open("../queries/HN/hoan_kiem.geojson", "r") as f:
@@ -359,7 +359,7 @@ def test_filter_within_polygon():
 
 def test_filter_within_radius():
 
-    df = pl.read_parquet("../datasets/raw/oss/ha_noi_0_120.parquet")
+    df = pl.read_parquet("../datasets/raw/oss/ha_noi_99.parquet")
     print(len(df))
 
     # print(filter_within_polygon1(df=df, poly=poly))
@@ -440,8 +440,8 @@ def main():
 
     # print(city_mapping())
 
-    # test_filter_within_polygon()
-    test_filter_within_radius()
+    test_filter_within_polygon()
+    # test_filter_within_radius()
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ def prepare(file: Path) -> pl.DataFrame:
     df = pl.read_csv(file)
     selected = df.select(
         pl.col(
+            "input_id",
             "link",
             "title",
             "category",
