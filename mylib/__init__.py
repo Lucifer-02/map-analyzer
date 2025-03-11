@@ -1,5 +1,5 @@
 TYPE_ATTRACTIVES = [
-    [
+    {
         "amusement_park",
         "airport",
         "bus_station",
@@ -14,16 +14,13 @@ TYPE_ATTRACTIVES = [
         "local_government_office",
         "courthouse",
         "embassy",
-        "local_government_office",
         "museum",
         "stadium",
         "gym",
         "parking",
         "hospital",
-        "school",
-        "university",
-    ],
-    [
+    },
+    {
         "car_dealer",
         "hospital",
         "restaurant",
@@ -40,19 +37,18 @@ TYPE_ATTRACTIVES = [
         "store",
         "home_goods_store",
         "convenience_store",
-        "store",
         "gas_station",
         "lodging",
         "convenience_store",
-    ],
-    [
+    },
+    {
         "school",
         "library",
         "art_gallery",
         "police",
         "place_of_worship",
-    ],
-    ["bank", "atm"],
+    },
+    {"bank", "atm"},
 ]
 
 # GROUPS = {

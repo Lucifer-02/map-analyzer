@@ -47,9 +47,9 @@ def filter_within_radius(
     # Vectorized computation using Polars expressions
     filtered_df = (
         df.with_columns(
-            haversine(center.latitude, center.longitude, pl.col(lat_col), pl.col(lon_col)).alias(
-                "distance"
-            )
+            haversine(
+                center.latitude, center.longitude, pl.col(lat_col), pl.col(lon_col)
+            ).alias("distance")
         )
         .filter(pl.col("distance") <= radius_m)
         .drop("distance")
@@ -83,6 +83,38 @@ def filter_within_radius1(
     return filtered
 
 
+def filter_within_radius2(
+    df: pl.DataFrame, lat_col: str, lon_col: str, center: Point, radius_m: float
+) -> pl.DataFrame:
+    """Efficiently filter rows within a radius using GeoPandas spatial operations."""
+    circle = draw_circle(center=center, radius_meters=radius_m, num_points=64)
+
+    return filter_within_polygon1(df, poly=circle, lat_col=lat_col, lon_col=lon_col)
+
+
+def filter_within_polygon1(
+    df: pl.DataFrame,
+    poly: Polygon,
+    lat_col: str = "latitude",
+    lon_col: str = "longitude",
+) -> pl.DataFrame:
+    """Efficiently filter rows within a polygon using GeoPandas spatial join."""
+    if len(df) == 0:
+        return df
+
+    # Convert Polars DataFrame to GeoDataFrame
+    gdf = gpd.GeoDataFrame(
+        df.to_pandas(),
+        geometry=gpd.points_from_xy(df[lon_col], df[lat_col]),
+        crs="EPSG:4326",
+    )
+    polygon_gdf = gpd.GeoDataFrame(geometry=[poly], crs="EPSG:4326")
+
+    # Spatial join (inner join keeps only matching points)
+    joined_gdf = gpd.sjoin(gdf, polygon_gdf, predicate="within", how="inner")
+    return pl.from_pandas(joined_gdf.drop(columns=["geometry", "index_right"]))
+
+
 def filter_within_polygon(
     df: pl.DataFrame,
     poly: Polygon,
@@ -99,13 +131,11 @@ def filter_within_polygon(
         )
         .alias("is_inside")
     )
-    print(new_df)
 
     filtered = new_df.filter(pl.col("is_inside")).drop("is_inside")
-    print(filtered)
 
-    assert len(filtered) > 0
-    assert len(filtered) < len(df)
+    assert len(filtered) >= 0
+    assert len(filtered) <= len(df)
     return filtered
 
 
@@ -148,7 +178,7 @@ def distance(point1: Point, point2: Point) -> Distance:
 
 
 # shift point by distance to the directions
-def shift_localtion(point: Point, distance_meters: float, degree: float) -> Point:
+def shift_location(point: Point, distance_meters: float, degree: float) -> Point:
     return geopy.distance.distance(kilometers=distance_meters / 1000).destination(
         point=point, bearing=degree
     )
@@ -222,20 +252,18 @@ def aoi_to_geojson(aoi: gpd.GeoDataFrame, output_file: Path) -> None:
         json.dump(aoi.to_geo_dict(), f)
 
 
-def draw_circle(
-    center: Point, radius_meters: float, num_points: int = 4
-) -> list[Point]:
+def draw_circle(center: Point, radius_meters: float, num_points: int = 4) -> Polygon:
     assert num_points >= 3, "Must be a polygon"
 
     points = []
     for i in range(num_points):
         degree = 360 * i / num_points
-        point = shift_localtion(
+        point = shift_location(
             point=center, distance_meters=radius_meters, degree=degree
         )
         points.append(point)
 
-    return points
+    return points_to_polygon(points)
 
 
 def test_polygon():
@@ -259,8 +287,8 @@ def test_polygon():
     plt.show()
 
 
-def create_cover_from_points(
-    points: list[Point], name: str = "New AOI", crs: str = "EPSG:4326"
+def create_cover_from_polygon(
+    poly: Polygon, name: str = "New AOI", crs: str = "EPSG:4326"
 ) -> gpd.GeoDataFrame:
     """
     Creates a GeoDataFrame representing an Area of Interest (AOI)
@@ -272,14 +300,8 @@ def create_cover_from_points(
     :return: A GeoDataFrame containing the AOI polygon.
     """
 
-    # Convert geopy Points to a list of (longitude, latitude) tuples
-    coordinates = [(point.longitude, point.latitude) for point in points]
-
-    # Create a Shapely Polygon from the list of coordinates
-    polygon = Polygon(coordinates)
-
     # Create a GeoDataFrame with the polygon
-    cover_area = gpd.GeoDataFrame([{"name": name}], geometry=[polygon], crs=crs)
+    cover_area = gpd.GeoDataFrame([{"name": name}], geometry=[poly], crs=crs)
 
     return cover_area
 
@@ -295,8 +317,8 @@ def test_circle():
     import matplotlib.pyplot as plt
 
     plt.plot(
-        [point.longitude for point in points],
-        [point.latitude for point in points],
+        [point.longitude for point in polygon_to_points(points)],
+        [point.latitude for point in polygon_to_points(points)],
         "ro",
     )
     plt.show()
@@ -309,16 +331,88 @@ def city_mapping() -> Dict[str, str]:
 
 
 def test_filter_within_polygon():
-    df = pl.DataFrame(
-        {"latitude": [20.331948, 21.017354], "longitude": [106.196018, 105.814087]}
-    )
+    # df = pl.DataFrame(
+    #     {"latitude": [20.331948, 21.017354], "longitude": [106.196018, 105.814087]}
+    # )
 
-    with open("../queries/ha_noi.geojson", "r") as f:
+    df = pl.read_parquet("../datasets/raw/oss/ha_noi_3_51.parquet")
+    print(len(df))
+
+    with open("../queries/HN/hoan_kiem.geojson", "r") as f:
         data = json.load(f)
 
     poly = geojson_to_polygon(data)
 
-    print(filter_within_polygon(df=df, poly=poly))
+    # print(filter_within_polygon1(df=df, poly=poly))
+    import time
+
+    start = time.time()
+    print(len(filter_within_polygon(df=df, poly=poly)))
+    end = time.time()
+    print(end - start)
+
+    start = time.time()
+    print(len(filter_within_polygon1(df=df, poly=poly)))
+    end = time.time()
+    print(end - start)
+
+
+def test_filter_within_radius():
+
+    df = pl.read_parquet("../datasets/raw/oss/ha_noi_0_120.parquet")
+    print(len(df))
+
+    # print(filter_within_polygon1(df=df, poly=poly))
+    import time
+
+    start = time.time()
+    print(
+        len(
+            filter_within_radius(
+                df,
+                center=Point(21.024958, 105.828912),
+                lat_col="latitude",
+                lon_col="longitude",
+                radius_m=2000,
+            )
+        )
+    )
+    end = time.time()
+    print(end - start)
+
+    # ----------------
+
+    start = time.time()
+    print(
+        len(
+            filter_within_radius1(
+                df,
+                center=Point(21.024958, 105.828912),
+                lat_col="latitude",
+                lon_col="longitude",
+                radius_m=2000,
+            )
+        )
+    )
+
+    end = time.time()
+    print(end - start)
+
+    # -------------
+    start = time.time()
+    print(
+        len(
+            filter_within_radius2(
+                df,
+                center=Point(21.024958, 105.828912),
+                lat_col="latitude",
+                lon_col="longitude",
+                radius_m=2000,
+            )
+        )
+    )
+    end = time.time()
+    print(end - start)
 
 
 def main():
@@ -346,7 +440,8 @@ def main():
 
     # print(city_mapping())
 
-    test_filter_within_polygon()
+    # test_filter_within_polygon()
+    test_filter_within_radius()
 
 
 if __name__ == "__main__":

@@ -6,15 +6,15 @@ import numpy as np
 
 from geopy.point import Point
 
-from .utils import draw_circle, create_cover_from_points
+from .utils import draw_circle, create_cover_from_polygon
 
 
 def pop_in_radius(
     center: Point, radius_meters: float, dataset: rasterio.DatasetReader
 ) -> float:
-    points = draw_circle(center=center, radius_meters=radius_meters, num_points=8)
+    circle = draw_circle(center=center, radius_meters=radius_meters, num_points=8)
 
-    cover_area = create_cover_from_points(points=points)
+    cover_area = create_cover_from_polygon(poly=circle)
 
     return _get_pop(src=dataset, aoi=cover_area)
 

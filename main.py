@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 from pprint import pprint
-from typing import Dict, List
+from typing import Dict, List, Set
 import json
 
 import shapely
@@ -26,7 +26,7 @@ from mylib.utils import (
 )
 from mylib.population import pop_in_radius, _get_pop
 from mylib.viz import map_viz_points
-from mylib import GROUPS, utils
+from mylib import GROUPS, utils, TYPE_ATTRACTIVES
 
 
 def test_hoankiem():
@@ -41,7 +41,7 @@ def test_hoankiem():
         points_to_polygon(HOANKIEM_CORNERS), DISTANCE_POINTS_KMS
     )
 
-    crawler.crawl_in_area(points=points, keywords=["cafe"])
+    crawler.crawl_in_area(points=points, keywords={"cafe"})
 
 
 def test_around_point():
@@ -50,14 +50,13 @@ def test_around_point():
 
     logging.info(f"Starting crawl all places around {poi}")
 
-    DISTANCE_SAMPLE_POINTS_MS = 500
     circle = draw_circle(center=poi, radius_meters=2000, num_points=4)
 
     for dist in range(500, 1501, 500):
-        sample_points = find_points_in_polygon(points_to_polygon(circle), dist)
+        sample_points = find_points_in_polygon(circle, dist)
 
         map_viz_points(sample_points)
-        df = crawler.crawl_in_area(points=sample_points, keywords=["atm", "school"])
+        df = crawler.crawl_in_area(points=sample_points, keywords={"atm", "school"})
         logging.info(
             f"Result length: {len(df)}, dedupliced length: {len(df.unique())}, ratio: {1-(len(df) / len(df.unique()))}."
         )
@@ -74,12 +73,10 @@ def test_crawl_area():
     circle = draw_circle(center=poi, radius_meters=2000, num_points=4)
 
     DISTANCE_SAMPLE_POINTS_MS = 500
-    sample_points = find_points_in_polygon(
-        points_to_polygon(circle), DISTANCE_SAMPLE_POINTS_MS
-    )
+    sample_points = find_points_in_polygon(circle, DISTANCE_SAMPLE_POINTS_MS)
 
     map_viz_points(sample_points)
-    df = crawler.crawl_in_area(points=sample_points, keywords=["atm", "school"])
+    df = crawler.crawl_in_area(points=sample_points, keywords={"atm", "school"})
     logging.info(
         f"Result length: {len(df)}, dedupliced length: {len(df.unique())}, ratio: {1-(len(df) / len(df.unique()))}."
     )
@@ -115,7 +112,7 @@ def test_crawl_atm_places_within_radius():
             result = crawl_places_within_radius(
                 center=Point(latitude=poi["LATITUDE"], longitude=poi["LONGITUDE"]),
                 radius_m=2000,
-                categories=list(ALL_TYPES),
+                categories={"atm"},
             )
             result.write_parquet(output)
             logging.info(
@@ -136,18 +133,18 @@ def test_around_points():
     pois = hanoi_poi.to_dicts()
 
     for poi in pois:
-        crawler.crawl(center=Point(poi["lat"], poi["lon"]), keywords=["atm"])
+        crawler.crawl(center=Point(poi["lat"], poi["lon"]), keywords={"atm"})
 
 
 def crawl_places_within_radius(
     center: Point,
     radius_m: float,
-    categories: List[str],
+    categories: Set[str],
     DISTANCE_SAMPLE_POINTS_MS: float = 1000,
 ):
     points_on_circle = draw_circle(center=center, radius_meters=radius_m)
     sample_points = find_points_in_polygon(
-        polygon=points_to_polygon(points_on_circle),
+        polygon=points_on_circle,
         distance_points_ms=DISTANCE_SAMPLE_POINTS_MS,
     )
     map_viz_points(sample_points)
@@ -265,7 +262,7 @@ def test_pop_in_radius():
     )
     with rasterio.open(POPULATION_DATASET) as src:
         total_population = pop_in_radius(
-            center=Point(21.0197031, 105.8459557), radius_km=2.0, dataset=src
+            center=Point(21.0197031, 105.8459557), radius_meters=2.0, dataset=src
         )
 
     print(f"Total population within the area of interest: {total_population}")
@@ -283,7 +280,7 @@ def add_pop_around_poi():
         for poi in pois:
             print(f"Processing {poi}")
             total_population = pop_in_radius(
-                center=Point(poi["lat"], poi["lon"]), radius_km=2.0, dataset=src
+                center=Point(poi["lat"], poi["lon"]), radius_meters=2000, dataset=src
             )
             poi["population"] = total_population
             new_pois.append(poi)
@@ -395,9 +392,7 @@ def test_api_point_radius():
     poi = Point(21.019430, 105.836551)
     DISTANCE_SAMPLE_POINTS_KMS = 0.8
     circle = draw_circle(center=poi, radius_meters=RADIUS, num_points=4)
-    sample_points = find_points_in_polygon(
-        points_to_polygon(circle), DISTANCE_SAMPLE_POINTS_KMS
-    )
+    sample_points = find_points_in_polygon(circle, DISTANCE_SAMPLE_POINTS_KMS)
 
     # --------start--------------
     num_places = 0
@@ -446,7 +441,7 @@ def test_api_point_radius():
 def test_api_area():
     # --------setup--------------
     RADIUS = 1000
-    # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
+    POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
     # POI_TYPES = ["hospital", "school"]
     COVER = Path("./queries/ha_noi.geojson")
     with open(COVER, "r", encoding="utf8") as f:
@@ -464,7 +459,7 @@ def test_api_area():
         logging.info(f"Progress: {i+1}/{len(cover_points)}")
 
         places_around: List[places_api.DacPlace] = []
-        for poi_type in ALL_TYPES:
+        for poi_type in POI_TYPES:
             places_around.extend(
                 places_api.nearby_search(
                     client=gmaps,
@@ -514,9 +509,7 @@ def test_area_crawl():
 
     # pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
 
-    FROM_IDX = 0
-
-    from mylib import TYPE_ATTRACTIVES
+    FROM_IDX = 45
 
     for i, point in enumerate(points[FROM_IDX:]):
         for group_id, categories in enumerate(TYPE_ATTRACTIVES):
@@ -525,11 +518,13 @@ def test_area_crawl():
                 f"./datasets/raw/oss/{COVER.stem}_{group_id}_{i+FROM_IDX}.parquet"
             )
             if save_path.exists() == False:
-                pois = crawler.crawl(center=point, keywords=categories, ncores=8)
+                pois = crawler.crawl(center=point, keywords=categories, ncores=4)
                 result = filter_within_polygon(df=pois, poly=poly)
                 logging.info(f"Result after filted all outside the area: {result}")
 
                 result.write_parquet(save_path)
+            else:
+                logging.info(f"The dataset already exists, skipping...")
 
 
 def classify_group(categories: List[str], group_dict: Dict[str, List]) -> List[str]:
@@ -596,7 +591,7 @@ def post_process_atm():
                 longitude=atm["LONGITUDE"],
             )
 
-            pois = utils.filter_within_radius(
+            pois = utils.filter_within_radius2(
                 places_group,
                 lat_col="latitude",
                 lon_col="longitude",

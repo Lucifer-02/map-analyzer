@@ -2,7 +2,7 @@ from subprocess import call
 from pathlib import Path
 import logging
 from datetime import datetime
-from typing import List
+from typing import List, Set
 import time
 import platform
 import os
@@ -20,7 +20,7 @@ def point_to_string(point: Point) -> str:
 
 # https://developers.google.com/maps/documentation/urls/get-started
 def crawl(
-    keywords: List[str],
+    keywords: Set[str],
     center: Point,
     zoom: int = 18,
     timeout: float = 0.5,
@@ -83,7 +83,7 @@ def crawl(
     return df
 
 
-def crawl_in_area(points: List[Point], keywords: List[str]) -> pl.DataFrame:
+def crawl_in_area(points: List[Point], keywords: Set[str]) -> pl.DataFrame:
     df = pl.DataFrame()
     for i, point in enumerate(points):
         logging.info(f"Processing point {i+1}/{len(points)}")
