@@ -14,19 +14,8 @@ import geopandas as gpd
 
 from engines.gosom_scraper import crawler
 from engines.google_api import places_api
-from mylib.utils import (
-    distance,
-    find_points_in_polygon,
-    draw_circle,
-    points_to_polygon,
-    geojson_to_polygon,
-    city_mapping,
-    filter_within_radius,
-    filter_within_polygon,
-)
 from mylib.population import pop_in_radius, _get_pop
-from mylib.viz import map_viz_points
-from mylib import GROUPS, utils, TYPE_ATTRACTIVES
+from mylib import GROUPS, utils, TYPE_ATTRACTIVES, viz
 
 
 def test_hoankiem():
@@ -37,8 +26,8 @@ def test_hoankiem():
         Point(21.042487, 105.85754),
     ]
     DISTANCE_POINTS_KMS = 1.0
-    points = find_points_in_polygon(
-        points_to_polygon(HOANKIEM_CORNERS), DISTANCE_POINTS_KMS
+    points = utils.find_points_in_polygon(
+        utils.points_to_polygon(HOANKIEM_CORNERS), DISTANCE_POINTS_KMS
     )
 
     crawler.crawl_in_area(points=points, keywords={"cafe"})
@@ -50,12 +39,12 @@ def test_around_point():
 
     logging.info(f"Starting crawl all places around {poi}")
 
-    circle = draw_circle(center=poi, radius_meters=2000, num_points=4)
+    circle = utils.draw_circle(center=poi, radius_meters=2000, num_points=4)
 
     for dist in range(500, 1501, 500):
-        sample_points = find_points_in_polygon(circle, dist)
+        sample_points = utils.find_points_in_polygon(circle, dist)
 
-        map_viz_points(sample_points)
+        viz.map_points(sample_points)
         df = crawler.crawl_in_area(points=sample_points, keywords={"atm", "school"})
         logging.info(
             f"Result length: {len(df)}, dedupliced length: {len(df.unique())}, ratio: {1-(len(df) / len(df.unique()))}."
@@ -70,12 +59,12 @@ def test_crawl_area():
 
     logging.info(f"Starting crawl all places around {poi}")
 
-    circle = draw_circle(center=poi, radius_meters=2000, num_points=4)
+    circle = utils.draw_circle(center=poi, radius_meters=2000, num_points=4)
 
     DISTANCE_SAMPLE_POINTS_MS = 500
-    sample_points = find_points_in_polygon(circle, DISTANCE_SAMPLE_POINTS_MS)
+    sample_points = utils.find_points_in_polygon(circle, DISTANCE_SAMPLE_POINTS_MS)
 
-    map_viz_points(sample_points)
+    viz.map_points(sample_points)
     df = crawler.crawl_in_area(points=sample_points, keywords={"atm", "school"})
     logging.info(
         f"Result length: {len(df)}, dedupliced length: {len(df.unique())}, ratio: {1-(len(df) / len(df.unique()))}."
@@ -142,19 +131,19 @@ def crawl_places_within_radius(
     categories: Set[str],
     DISTANCE_SAMPLE_POINTS_MS: float = 1000,
 ):
-    points_on_circle = draw_circle(center=center, radius_meters=radius_m)
-    sample_points = find_points_in_polygon(
+    points_on_circle = utils.draw_circle(center=center, radius_meters=radius_m)
+    sample_points = utils.find_points_in_polygon(
         polygon=points_on_circle,
         distance_points_ms=DISTANCE_SAMPLE_POINTS_MS,
     )
-    map_viz_points(sample_points)
+    viz.map_points(sample_points)
     logging.info(
         f"Found {len(sample_points)} sample points around {center.format_decimal()}"
     )
 
     df = crawler.crawl_in_area(points=sample_points, keywords=categories)
 
-    return filter_within_radius(
+    return utils.filter_within_radius(
         df,
         lat_col="latitude",
         lon_col="longitude",
@@ -206,7 +195,7 @@ def test_vietnam_population():
     GHS_POPULATION_DATASET = Path(
         "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0.tif"
     )
-    CITY_MAP = city_mapping()
+    CITY_MAP = utils.city_mapping()
     # List all files (excluding directories)
     files = [file for file in directory.glob("*.geojson")]  # Lists only .txt files
 
@@ -356,7 +345,9 @@ def test_api_near():
             # filter all place outside radius
             for place in places_around:
                 if (
-                    distance(atm_center, Point(latitude=place.lat, longitude=place.lon))
+                    utils.distance(
+                        atm_center, Point(latitude=place.lat, longitude=place.lon)
+                    )
                     <= RADIUS
                 ):
                     records.append(
@@ -391,8 +382,8 @@ def test_api_point_radius():
 
     poi = Point(21.019430, 105.836551)
     DISTANCE_SAMPLE_POINTS_KMS = 0.8
-    circle = draw_circle(center=poi, radius_meters=RADIUS, num_points=4)
-    sample_points = find_points_in_polygon(circle, DISTANCE_SAMPLE_POINTS_KMS)
+    circle = utils.draw_circle(center=poi, radius_meters=RADIUS, num_points=4)
+    sample_points = utils.find_points_in_polygon(circle, DISTANCE_SAMPLE_POINTS_KMS)
 
     # --------start--------------
     num_places = 0
@@ -416,7 +407,9 @@ def test_api_point_radius():
         # remove all place outside the circle
         for place in places_around:
             if (
-                distance(Point(latitude=place.lat, longitude=place.lon), point).meters
+                utils.distance(
+                    Point(latitude=place.lat, longitude=place.lon), point
+                ).meters
                 <= RADIUS
             ):
                 records.append(
@@ -446,8 +439,8 @@ def test_api_area():
     COVER = Path("./queries/ha_noi.geojson")
     with open(COVER, "r", encoding="utf8") as f:
         data = json.load(f)
-    poly = geojson_to_polygon(data)
-    cover_points = find_points_in_polygon(polygon=poly, distance_points_ms=1500)
+    poly = utils.geojson_to_polygon(data)
+    cover_points = utils.find_points_in_polygon(polygon=poly, distance_points_ms=1500)
 
     gmaps = googlemaps.Client(key="AIzaSyCDPST-2Vz3DBukf4sfkPZwUIUfJdHvwLQ")
 
@@ -503,9 +496,9 @@ def test_area_crawl():
     COVER = Path("./queries/ha_noi.geojson")
     with open(COVER, "r", encoding="utf8") as f:
         data = json.load(f)
-    poly = geojson_to_polygon(data)
-    points = find_points_in_polygon(polygon=poly, distance_points_ms=2000)
-    # map_viz_points(points)
+    poly = utils.geojson_to_polygon(data)
+    points = utils.find_points_in_polygon(polygon=poly, distance_points_ms=2000)
+    # map_points(points)
 
     # pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
 
@@ -515,8 +508,8 @@ def test_area_crawl():
         logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])}...")
         save_path = Path(f"./datasets/raw/oss/{COVER.stem}_{i+FROM_IDX}.parquet")
         if save_path.exists() == False:
-            pois = crawler.crawl(center=point, keywords=categories, ncores=8)
-            result = filter_within_polygon(df=pois, poly=poly)
+            pois = crawler.crawl(center=point, keywords=categories, ncores=4)
+            result = utils.filter_within_polygon1(df=pois, poly=poly)
             logging.info(f"Result after filted all outside the area: {result}")
 
             result.write_parquet(save_path)
@@ -566,8 +559,6 @@ def post_process_atm():
     dfs = [pl.read_parquet(file) for file in files]
 
     places = pl.concat(dfs).unique(subset=["link"])
-
-    from mylib import GROUPS
 
     places_group = places.with_columns(
         pl.col("categories")

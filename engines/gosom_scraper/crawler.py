@@ -73,10 +73,9 @@ def crawl(
         ]
     )
     end = time.time()
-    logging.info(f"Run time: {end - start}")
 
     df = prepare(output_path)
-    logging.info(f"Collected {len(df)} places")
+    logging.info(f"Collected {len(df)} places in {end - start} seconds.")
 
     # clean up
     os.remove(input_path)

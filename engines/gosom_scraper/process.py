@@ -16,5 +16,5 @@ def prepare(file: Path) -> pl.DataFrame:
             "longitude",
             "address",
         )
-    )
+    ).rename({"input_id": "query"})
     return selected

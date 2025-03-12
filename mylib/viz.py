@@ -9,7 +9,7 @@ from geopy.point import Point
 from shapely.geometry import Polygon
 
 
-def map_viz_points(points: List[Point]):
+def map_points(points: List[Point]):
 
     m = folium.Map(location=[points[0].latitude, points[0].longitude], zoom_start=15)
 
@@ -22,7 +22,7 @@ def map_viz_points(points: List[Point]):
     print(f"Open {OUTPUT}")
 
 
-def viz_polygon(polygon: Polygon):
+def polygon(polygon: Polygon):
     x, y = polygon.exterior.xy
     plt.plot(x, y, color="green")
     plt.show()
