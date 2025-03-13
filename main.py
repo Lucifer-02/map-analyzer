@@ -511,7 +511,6 @@ def test_area_crawl():
             pois = crawler.crawl(center=point, keywords=categories, ncores=4)
             result = utils.filter_within_polygon1(df=pois, poly=poly)
             logging.info(f"Result after filted all outside the area: {result}")
-
             result.write_parquet(save_path)
         else:
             logging.info(f"The dataset {save_path} already exists, skipping...")

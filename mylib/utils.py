@@ -294,16 +294,14 @@ def create_cover_from_polygon(
     Creates a GeoDataFrame representing an Area of Interest (AOI)
     from a list of geopy.point.Point objects.
 
-    :param points: List of geopy.point.Point objects defining the vertices of the AOI.
+    :param poly: polygon
     :param name: The name of the AOI feature.
     :param crs: Coordinate reference system for the GeoDataFrame.
     :return: A GeoDataFrame containing the AOI polygon.
     """
 
     # Create a GeoDataFrame with the polygon
-    cover_area = gpd.GeoDataFrame([{"name": name}], geometry=[poly], crs=crs)
-
-    return cover_area
+    return gpd.GeoDataFrame([{"name": name}], geometry=[poly], crs=crs)
 
 
 def test_circle():
@@ -325,6 +323,7 @@ def test_circle():
 
 
 def city_mapping() -> Dict[str, str]:
+    # IO
     with open(f"{Path(__file__).parent}/geo_map.json", "r", encoding="utf-8") as file:
         data = json.load(file)  # Load JSON data as a Python dictionary or list
     return data
