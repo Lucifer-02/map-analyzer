@@ -4,6 +4,7 @@ from pprint import pprint
 from typing import Dict, List, Set
 import json
 
+from numpy import result_type
 import shapely
 from geopy.point import Point
 import polars as pl
@@ -15,7 +16,7 @@ import geopandas as gpd
 from engines.gosom_scraper import crawler
 from engines.google_api import places_api
 from mylib.population import pop_in_radius, _get_pop
-from mylib import GROUPS, utils, TYPE_ATTRACTIVES, viz
+from mylib import ALL_TYPES, POI_GROUPS, utils, POI_GROUPS, viz
 
 
 def test_hoankiem():
@@ -493,7 +494,7 @@ def test_area_crawl():
     logging.info("Start crawl...")
     # --------setup--------------
     # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school", "restaurant", "park"]
-    COVER = Path("./queries/ha_noi.geojson")
+    COVER = Path("./queries/with_ocean/hcm.geojson")
     with open(COVER, "r", encoding="utf8") as f:
         data = json.load(f)
     poly = utils.geojson_to_polygon(data)
@@ -502,13 +503,12 @@ def test_area_crawl():
 
     # pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
 
-    categories = set().union(*TYPE_ATTRACTIVES)
     FROM_IDX = 0
     for i, point in enumerate(points[FROM_IDX:]):
         logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])}...")
         save_path = Path(f"./datasets/raw/oss/{COVER.stem}_{i+FROM_IDX}.parquet")
         if save_path.exists() == False:
-            pois = crawler.crawl(center=point, keywords=categories, ncores=4)
+            pois = crawler.crawl(center=point, keywords=ALL_TYPES, ncores=6)
             result = utils.filter_within_polygon1(df=pois, poly=poly)
             logging.info(f"Result after filted all outside the area: {result}")
             result.write_parquet(save_path)
@@ -516,31 +516,19 @@ def test_area_crawl():
             logging.info(f"The dataset {save_path} already exists, skipping...")
 
 
-def classify_group(categories: List[str], group_dict: Dict[str, List]) -> List[str]:
+def classify_group2(category: str, group_dict: Dict[str, Set]) -> List[str]:
 
-    result = []
-
+    result = set()
     for key in group_dict.keys():
-        for category in categories:
-            if category.lower() in group_dict[key]:
-                result.append(key)
-            else:
-                elements = category.lower().split(" ")
-                for element in elements:
-                    if element in group_dict[key]:
-                        result.append(key)
+        if category.lower() in group_dict[key]:
+            result.add(key)
 
-    # if result == []:
-    #     logging.info(f"Empty {categories}")
-    # else:
-    #     logging.info(f"Result: {result}, categories: {categories}")
-
-    return list(set(result))
+    assert len(result) != 0
+    return list(result)
 
 
-# adhoc
-def post_process_atm():
-
+# for new dataset
+def post_process_atm2():
     # ATM
     df = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx")
     POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
@@ -560,13 +548,14 @@ def post_process_atm():
     places = pl.concat(dfs).unique(subset=["link"])
 
     places_group = places.with_columns(
-        pl.col("categories")
+        pl.col("query")
         .map_elements(
-            lambda x: classify_group(categories=x.split(", "), group_dict=GROUPS),
-            return_dtype=list[str],
+            lambda x: classify_group2(category=x, group_dict=POI_GROUPS),
+            return_dtype=pl.DataType.from_python(list[str]),
         )
         .alias("group")
     )
+    print(places_group)
 
     result = pl.DataFrame()
 
@@ -578,7 +567,7 @@ def post_process_atm():
                 longitude=atm["LONGITUDE"],
             )
 
-            pois = utils.filter_within_radius2(
+            pois = utils.filter_within_radius(
                 places_group,
                 lat_col="latitude",
                 lon_col="longitude",
@@ -650,6 +639,7 @@ def main():
     test_area_crawl()
     # test_crawl_atm_places_within_radius()
     # post_process_atm()
+    # post_process_atm2()
 
 
 if __name__ == "__main__":
