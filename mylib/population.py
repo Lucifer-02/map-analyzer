@@ -12,7 +12,7 @@ from .utils import draw_circle, create_cover_from_polygon
 def pop_in_radius(
     center: Point, radius_meters: float, dataset: rasterio.DatasetReader
 ) -> float:
-    circle = draw_circle(center=center, radius_meters=radius_meters, num_points=8)
+    circle = draw_circle(center=center, radius_meters=radius_meters, num_points=16)
 
     cover_area = create_cover_from_polygon(poly=circle)
 
@@ -21,19 +21,20 @@ def pop_in_radius(
 
 def _get_pop(src: rasterio.DatasetReader, aoi: gpd.GeoDataFrame) -> float:
     # Reproject the AOI to match the CRS of the population raster
-    new_aoi = aoi.to_crs(src.crs)
+    new_aoi = aoi.to_crs(src.crs, epsg=4326)
     assert new_aoi is not None, "Failed to reproject the AOI"
 
-    # Mask the raster using the AOI geometry
+    # Mask the raster with the GeoJSON geometry
     out_image, _ = mask(src, new_aoi.geometry, crop=True)
-    out_image = out_image[0]  # Extract the masked population data band
 
-    # Replace NaN values (masked areas) with 0 for summation
-    out_image = np.nan_to_num(out_image)
+    # Extract valid (non-NaN) values
+    population_data = out_image[0]  # First band
+    population_data = population_data[
+        population_data > 0
+    ]  # Remove zero or nodata values
 
-    # Calculate the sum of the population within the masked area
-    total_population = np.sum(out_image)
-
+    # Compute the total population
+    total_population = np.sum(population_data)
     return total_population
 
 

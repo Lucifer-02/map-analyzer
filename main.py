@@ -188,13 +188,19 @@ def test_population():
 def test_vietnam_population():
 
     # Specify the directory path
-    directory = Path("/media/lucifer/STORAGE/IMPORTANT/map-analyzer/queries/")
+    directory = Path(
+        "/media/lucifer/STORAGE/IMPORTANT/map-analyzer/queries/with_ocean/"
+    )
 
     META_POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
 
     GHS_POPULATION_DATASET = Path(
         "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0.tif"
     )
+    WORLDPOP_POPULATION_DATASET = Path(
+        "./datasets/population/vnm_pop_2024_CN_100m_R2024B_v1.tif"
+    )
+
     CITY_MAP = utils.city_mapping()
     # List all files (excluding directories)
     files = [file for file in directory.glob("*.geojson")]  # Lists only .txt files
@@ -213,18 +219,24 @@ def test_vietnam_population():
                         "population": total_population,
                     }
                 )
-        except ValueError:
-            result.append(
-                {"city": CITY_MAP[file.name], "source": "meta", "population": -1}
-            )
-
-        try:
             with rasterio.open(GHS_POPULATION_DATASET) as src:
                 total_population = _get_pop(src=src, aoi=cover_area)
                 result.append(
                     {
                         "area": CITY_MAP[file.name],
                         "source": "ghs",
+                        "population": total_population,
+                    }
+                )
+            with rasterio.open(WORLDPOP_POPULATION_DATASET) as src:
+                # total_population = _get_pop_2(
+                #     geojson_path=file, raster_path=WORLDPOP_POPULATION_DATASET
+                # )
+                total_population = _get_pop(src=src, aoi=cover_area)
+                result.append(
+                    {
+                        "area": CITY_MAP[file.name],
+                        "source": "worldpop",
                         "population": total_population,
                     }
                 )
@@ -641,8 +653,8 @@ def main():
     # test_near_api()
     # test_area_api()
     # test_point_radius_api()
-    # test_vietnam_population()
-    test_area_crawl()
+    test_vietnam_population()
+    # test_area_crawl()
     # test_crawl_atm_places_within_radius()
     # post_process_atm2()
 
