@@ -4,7 +4,6 @@ from pprint import pprint
 from typing import Dict, List, Set
 import json
 
-from numpy import result_type
 import shapely
 from geopy.point import Point
 import polars as pl

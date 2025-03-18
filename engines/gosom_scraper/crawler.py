@@ -45,10 +45,13 @@ def crawl(
     OS = platform.system()
 
     if OS == "Windows":
-        exe = f"{Path(__file__).parent}/the_scraper.exe"
+        exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-windows-amd64.exe"
 
-    if OS == "Linux" or OS == "Darwin":
-        exe = f"{Path(__file__).parent}/the_scraper"
+    if OS == "Linux":
+        exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-linux-amd64"
+
+    if OS == "Darwin":
+        exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-darwin-amd64"
 
     start = time.time()
     # use the crawling tool
