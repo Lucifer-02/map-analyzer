@@ -494,7 +494,7 @@ def test_area_crawl():
     logging.info("Start crawl...")
     # --------setup--------------
     # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school", "restaurant", "park"]
-    COVER = Path("./queries/with_ocean/hcm.geojson")
+    COVER = Path("./queries/with_ocean/bac_ninh.geojson")
     with open(COVER, "r", encoding="utf8") as f:
         data = json.load(f)
     poly = utils.geojson_to_polygon(data)
@@ -508,7 +508,7 @@ def test_area_crawl():
         logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])}...")
         save_path = Path(f"./datasets/raw/oss/{COVER.stem}_{i+FROM_IDX}.parquet")
         if save_path.exists() == False:
-            pois = crawler.crawl(center=point, keywords=ALL_TYPES, ncores=6)
+            pois = crawler.crawl(center=point, keywords=ALL_TYPES, ncores=4)
             result = utils.filter_within_polygon1(df=pois, poly=poly)
             logging.info(f"Result after filted all outside the area: {result}")
             result.write_parquet(save_path)
@@ -537,11 +537,18 @@ def post_process_atm2():
         pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
         pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
     )
-    filted = valid_df.filter(pl.col("CITY").str.contains(r"(HANOI)|(HA NOI)"))
+    # filted = valid_df.filter(pl.col("CITY").str.contains(r"(HANOI)|(HA NOI)"))
+    # filted = valid_df.filter(pl.col("CITY").str.contains(r"(HCM)|(HO CHI MINH)"))
+    filted = valid_df.filter(
+        pl.col("CITY").str.contains(r"(HCM)|(HO CHI MINH)|(HANOI)|(HA NOI)")
+    )
     atms = filted.to_dicts()
 
     # print(atms)
-    files = list(Path("./datasets/raw/oss/").glob("ha_noi_*.parquet"))
+    files = []
+
+    files.append(list(Path("./datasets/raw/oss/").glob("ha_noi_*.parquet")))
+    files.append(list(Path("./datasets/raw/oss/").glob("hcm_*.parquet")))
 
     dfs = [pl.read_parquet(file) for file in files]
 
@@ -571,7 +578,7 @@ def post_process_atm2():
                 places_group,
                 lat_col="latitude",
                 lon_col="longitude",
-                radius_m=2000,
+                radius_m=1000,
                 center=center,
             )
             count_pois = pois.explode("group").group_by("group").len().drop_nulls()
@@ -597,10 +604,10 @@ def post_process_atm2():
 
             with rasterio.open(POPULATION_DATASET) as src:
                 total_population = pop_in_radius(
-                    center=center, radius_meters=2000, dataset=src
+                    center=center, radius_meters=1000, dataset=src
                 )
                 with_groups_pop = with_groups.hstack(
-                    [pl.Series("population(radius 2 kms)", [total_population])]
+                    [pl.Series("population(radius 1 kms)", [total_population])]
                 )
 
             result.vstack(with_groups_pop, in_place=True)
@@ -638,7 +645,6 @@ def main():
     # test_vietnam_population()
     test_area_crawl()
     # test_crawl_atm_places_within_radius()
-    # post_process_atm()
     # post_process_atm2()
 
 
