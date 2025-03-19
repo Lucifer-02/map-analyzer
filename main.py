@@ -252,7 +252,7 @@ def test_vietnam_population():
 
     result.extend(TCTK)
 
-    df = pl.DataFrame(result)
+    df = pl.DataFrame(result).sort("area")
     print(df)
     df.write_csv("pop.csv")
 
@@ -653,8 +653,8 @@ def main():
     # test_near_api()
     # test_area_api()
     # test_point_radius_api()
-    test_vietnam_population()
-    # test_area_crawl()
+    # test_vietnam_population()
+    test_area_crawl()
     # test_crawl_atm_places_within_radius()
     # post_process_atm2()
 
