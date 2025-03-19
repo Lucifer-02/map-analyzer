@@ -505,7 +505,7 @@ def test_area_crawl():
     logging.info("Start crawl...")
     # --------setup--------------
     # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school", "restaurant", "park"]
-    COVER = Path("./queries/with_ocean/bac_ninh.geojson")
+    COVER = Path("./queries/with_ocean/hung_yen.geojson")
     with open(COVER, "r", encoding="utf8") as f:
         data = json.load(f)
     poly = utils.geojson_to_polygon(data)
