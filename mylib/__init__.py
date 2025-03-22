@@ -1,3 +1,5 @@
+# these categories also google places api types from https://developers.google.com/maps/documentation/places/web-service/supported_types
+
 POI_GROUPS = {
     "group1": {
         "amusement_park",
