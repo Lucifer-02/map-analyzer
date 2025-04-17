@@ -197,4 +197,6 @@ uv.lock
 !requirements.txt
 input*.txt
 output*.csv
+*.ovr
 !google_maps_scraper-1.7.10-windows-amd64.exe
+./datasets/population/*
