@@ -15,7 +15,7 @@ import geopandas as gpd
 from engines.gosom_scraper import crawler
 from engines.google_api import places_api
 from mylib.population import pop_in_radius, _get_pop
-from mylib import ALL_TYPES, POI_GROUPS, utils, POI_GROUPS, viz
+from mylib import ALL_TYPES, utils, POI_GROUPS, viz
 
 
 def test_hoankiem():
@@ -505,11 +505,11 @@ def test_area_crawl():
     logging.info("Start crawl...")
     # --------setup--------------
     # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school", "restaurant", "park"]
-    COVER = Path("./queries/with_ocean/hung_yen.geojson")
+    COVER = Path("./queries/with_ocean/phu_tho.geojson")
     with open(COVER, "r", encoding="utf8") as f:
         data = json.load(f)
     poly = utils.geojson_to_polygon(data)
-    points = utils.find_points_in_polygon(polygon=poly, distance_points_ms=2000)
+    points = utils.find_points_in_polygon(polygon=poly, distance_points_ms=2000) # DONT CHANGE DISTANCE
     # map_points(points)
 
     # pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
