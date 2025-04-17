@@ -191,10 +191,8 @@ go.work.sum
 *.zip
 *.xlsx
 *.pdf
-datasets/*
 *.db
 *.parquet
-pyproject.toml
 uv.lock
 !requirements.txt
 input*.txt
