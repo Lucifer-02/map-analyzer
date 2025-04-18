@@ -505,7 +505,7 @@ def test_area_crawl():
     logging.info("Start crawl...")
     # --------setup--------------
     # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school", "restaurant", "park"]
-    COVER = Path("./queries/with_ocean/phu_tho.geojson")
+    COVER = Path("./queries/with_ocean/hai_duong.geojson")
     with open(COVER, "r", encoding="utf8") as f:
         data = json.load(f)
     poly = utils.geojson_to_polygon(data)
@@ -519,7 +519,7 @@ def test_area_crawl():
         logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])}...")
         save_path = Path(f"./datasets/raw/oss/{COVER.stem}_{i+FROM_IDX}.parquet")
         if save_path.exists() == False:
-            pois = crawler.crawl(center=point, keywords=ALL_TYPES, ncores=4)
+            pois = crawler.crawl(center=point, keywords=ALL_TYPES, ncores=8)
             result = utils.filter_within_polygon1(df=pois, poly=poly)
             logging.info(f"Result after filted all outside the area: {result}")
             result.write_parquet(save_path)
