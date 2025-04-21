@@ -505,18 +505,21 @@ def test_area_crawl():
     logging.info("Start crawl...")
     # --------setup--------------
     # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school", "restaurant", "park"]
-    COVER = Path("./queries/with_ocean/hai_duong.geojson")
+    COVER = Path("./queries/with_ocean/phu_tho.geojson")
     with open(COVER, "r", encoding="utf8") as f:
         data = json.load(f)
     poly = utils.geojson_to_polygon(data)
-    points = utils.find_points_in_polygon(polygon=poly, distance_points_ms=2000) # DONT CHANGE DISTANCE
+    DISTANCE_POINTS_MS = 2000
+    points = utils.find_points_in_polygon(
+        polygon=poly, distance_points_ms=DISTANCE_POINTS_MS
+    )  # DONT CHANGE DISTANCE
     # map_points(points)
 
     # pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
 
     FROM_IDX = 0
     for i, point in enumerate(points[FROM_IDX:]):
-        logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])}...")
+        logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])} with distane of sample points is {DISTANCE_POINTS_MS} meters...")
         save_path = Path(f"./datasets/raw/oss/{COVER.stem}_{i+FROM_IDX}.parquet")
         if save_path.exists() == False:
             pois = crawler.crawl(center=point, keywords=ALL_TYPES, ncores=8)
