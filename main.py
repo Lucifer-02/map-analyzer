@@ -687,6 +687,7 @@ def post_process_atm2():
     result.write_excel("./datasets/results/atms.xlsx")
 
 
+# according pop density of Tong cuc thong ke
 def scale(x: float) -> float:
     return x * (175 / 1968) + (
         1179 / 2624
@@ -695,9 +696,9 @@ def scale(x: float) -> float:
 
 def main():
     COVER = Path("./queries/ha_tinh.geojson")
-    FACTOR = 2555.8 / 220.8  # (hanoi pop density) / (district pop density)
+    FACTOR = scale(2555.8 / 220.8)  # (hanoi pop density) / (district pop density)
     logging.info(f"factor for sample point: {FACTOR}")
-    test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2000)
+    test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2500)
     # test_area_crawl2(cover=COVER, base_distance_points_ms=2600)
     # test_area_crawl()
     # test_hoankiem()
