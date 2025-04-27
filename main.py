@@ -505,7 +505,7 @@ def test_area_crawl():
     logging.info("Start crawl...")
     # --------setup--------------
     # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school", "restaurant", "park"]
-    COVER = Path("./queries/with_ocean/phu_tho.geojson")
+    COVER = Path("./queries/with_ocean/vinh_phuc.geojson")
     with open(COVER, "r", encoding="utf8") as f:
         data = json.load(f)
     poly = utils.geojson_to_polygon(data)
@@ -519,15 +519,58 @@ def test_area_crawl():
 
     FROM_IDX = 0
     for i, point in enumerate(points[FROM_IDX:]):
-        logging.info(f"Crawling {i+1}/{len(points[FROM_IDX:])} with distane of sample points is {DISTANCE_POINTS_MS} meters...")
+        logging.info(
+            f"Crawling {i+1}/{len(points[FROM_IDX:])} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {COVER}..."
+        )
         save_path = Path(f"./datasets/raw/oss/{COVER.stem}_{i+FROM_IDX}.parquet")
         if save_path.exists() == False:
-            pois = crawler.crawl(center=point, keywords=ALL_TYPES, ncores=8)
-            result = utils.filter_within_polygon1(df=pois, poly=poly)
-            logging.info(f"Result after filted all outside the area: {result}")
-            result.write_parquet(save_path)
+            try:
+                pois = crawler.crawl(center=point, keywords=ALL_TYPES, ncores=8)
+                result = utils.filter_within_polygon1(df=pois, poly=poly)
+                logging.info(f"Result after filted all outside the area: {result}")
+                result.write_parquet(save_path)
+            except Exception as e:
+                logging.error(f"Error for point {point}: {e}, skipping...")
         else:
             logging.info(f"The dataset {save_path} already exists, skipping...")
+
+
+def test_area_crawl2(
+    cover: Path, factor: float = 1, base_distance_points_ms: float = 2000
+):
+    logging.info("Start crawl...")
+    # --------setup--------------
+    with open(cover, "r", encoding="utf8") as f:
+        data = json.load(f)
+    polys = utils.geojson_to_polygons(data)
+    DISTANCE_POINTS_MS = base_distance_points_ms * factor
+
+    # print(polys)
+
+    for poly in polys:
+        points = utils.find_points_in_polygon(
+            polygon=poly, distance_points_ms=DISTANCE_POINTS_MS
+        )
+
+        if len(points) == 0:
+            continue
+
+        FROM_IDX = 0
+        for i, point in enumerate(points[FROM_IDX:]):
+            logging.info(
+                f"Crawling {i+1}/{len(points[FROM_IDX:])} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
+            )
+            save_path = Path(f"./datasets/raw/oss/{cover.stem}_{i+FROM_IDX}.parquet")
+            if save_path.exists() == False:
+                try:
+                    pois = crawler.crawl(center=point, keywords=ALL_TYPES, ncores=4)
+                    result = utils.filter_within_polygon1(df=pois, poly=poly)
+                    logging.info(f"Result after filted all outside the area: {result}")
+                    result.write_parquet(save_path)
+                except Exception as e:
+                    logging.error(f"Error for point {point}: {e}, skipping...")
+            else:
+                logging.info(f"The dataset {save_path} already exists, skipping...")
 
 
 def classify_group2(category: str, group_dict: Dict[str, Set]) -> List[str]:
@@ -644,7 +687,19 @@ def post_process_atm2():
     result.write_excel("./datasets/results/atms.xlsx")
 
 
+def scale(x: float) -> float:
+    return x * (175 / 1968) + (
+        1179 / 2624
+    )  # f(x) = ax+b, f in [0.5;4] and x in [0.57;39.93])
+
+
 def main():
+    COVER = Path("./queries/ha_tinh.geojson")
+    FACTOR = 2555.8 / 220.8  # (hanoi pop density) / (district pop density)
+    logging.info(f"factor for sample point: {FACTOR}")
+    test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2000)
+    # test_area_crawl2(cover=COVER, base_distance_points_ms=2600)
+    # test_area_crawl()
     # test_hoankiem()
     # places_within_radius(center=Point(21.019430, 105.836551), radius_km=2.0)
     # test_around_point()
@@ -657,7 +712,6 @@ def main():
     # test_area_api()
     # test_point_radius_api()
     # test_vietnam_population()
-    test_area_crawl()
     # test_crawl_atm_places_within_radius()
     # post_process_atm2()
 

@@ -12,5 +12,7 @@ dataset:
 
 
 geo:
-	microsoft-edge https://hanshack.com/geotools/gimmegeodata/
-	# microsoft-edge https://geojson.io/#map=12.01/21.0197/105.84102
+	firefox https://hanshack.com/geotools/gimmegeodata/
+
+viz:
+	firefox https://geojson.io/#map=12.01/21.0197/105.84102

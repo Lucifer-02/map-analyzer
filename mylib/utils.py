@@ -148,6 +148,7 @@ def geojson_to_polygon(data: Dict) -> Polygon:
     assert all(
         item in data.keys() for item in ["features", "type"]
     ), "check valid geojson input"
+    assert geojson.FeatureCollection(data).is_valid
 
     if data.get("type") != "FeatureCollection":
         raise ValueError("The provided GeoJSON does not contain a FeatureCollection.")
@@ -171,6 +172,54 @@ def geojson_to_polygon(data: Dict) -> Polygon:
     # Create the shapely Polygon
     poly = Polygon(outer_ring)
     return poly
+
+
+import geojson
+
+
+# This is a trick because geojson only contain feature
+def geojson_to_polygons(data: Dict) -> List[Polygon]:
+    assert geojson.GeoJSON(data).is_valid
+
+    polygons = []
+
+    match data.get("type"):
+
+        case "MultiPolygon":
+            # 'coordinates' for MultiPolygon is an array of polygons
+            # Each polygon is an array of linear rings
+            multipolygon_coords = data.get("coordinates", [])
+
+            for polygon_coords in multipolygon_coords:
+                # polygon_coords[0] should be the outer ring
+                outer_ring = polygon_coords[0]
+                poly = Polygon(outer_ring)
+                polygons.append(poly)
+
+        case "FeatureCollection":
+
+            features = data.get("features", [])
+            assert len(features) == 1, "currently support parse only one feature"
+
+            geometry = features[0].get("geometry", {})
+            if geometry.get("type") != "Polygon":
+                raise ValueError("This is not a polygon")
+
+            # 'coordinates' for Polygon is an array of linear rings
+            # The first ring is the outer boundary, subsequent ones (if any) are holes
+            # Coordinates are in the format [[lon, lat], [lon, lat], ...]
+            polygon_coords = geometry.get("coordinates", [])
+
+            # polygon_coords[0] should be the outer ring
+            # Shapely expects (x, y) = (longitude, latitude)
+            outer_ring = polygon_coords[0]
+
+            # Create the shapely Polygon
+            poly = Polygon(outer_ring)
+
+            polygons.append(poly)
+
+    return polygons
 
 
 def distance(point1: Point, point2: Point) -> Distance:
@@ -205,9 +254,26 @@ def points_to_polygon(corners: List[Point]) -> Polygon:
     )
 
 
+def find_points_in_polygons(
+    polygons: List[Polygon], distance_points_ms: float, is_include_corners: bool = False
+) -> List[Point]:
+
+    result = []
+
+    for poly in polygons:
+        points = find_points_in_polygon(
+            polygon=poly,
+            distance_points_ms=distance_points_ms,
+            is_include_corners=is_include_corners,
+        )
+        result.extend(points)
+
+    return result
+
+
 # input is a list of corners of a polygon and distance of each other points, find the points inside the polygon by calculating evenly spaced points inside the rectangle that contains the polygon and check if the point is inside the polygon
 def find_points_in_polygon(
-    polygon: Polygon, distance_points_ms: float, include_corners: bool = False
+    polygon: Polygon, distance_points_ms: float, is_include_corners: bool = False
 ) -> List[Point]:
 
     # calculate the bounding box of the polygon
@@ -240,7 +306,7 @@ def find_points_in_polygon(
             ):
                 points.append(point)
 
-    if include_corners:
+    if is_include_corners:
         # add the corners to the polygon
         points.extend(polygon_to_points(polygon))
 

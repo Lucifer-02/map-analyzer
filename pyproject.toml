@@ -8,6 +8,7 @@ dependencies = [
     "altair>=5.5.0",
     "fastexcel>=0.13.0",
     "folium>=0.19.2",
+    "geojson>=3.2.0",
     "geopandas>=1.0.1",
     "geopy>=2.4.1",
     "google-maps-places>=0.1.23",
