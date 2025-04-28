@@ -17,5 +17,11 @@ geo:
 viz:
 	firefox https://geojson.io/#map=12.01/21.0197/105.84102
 
-sync:
-	zip -r raw.zip datasets/raw/ -x ./datasets/raw/oss/archives/* && rclone sync raw.zip map:work --progress && rm raw.zip
+archive:
+	zip -r raw.zip datasets/raw/ -x ./datasets/raw/oss/archives/* 
+
+sync: archive
+	rclone sync raw.zip map:work --progress 
+
+clean:
+	rm raw.zip
