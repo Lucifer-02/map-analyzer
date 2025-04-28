@@ -696,8 +696,8 @@ def post_process_atm2():
 # according pop density of Tong cuc thong ke
 def scale(x: float) -> float:
     # f(x) = ax+b, f in [0.5;10] and x in [0.57;39.93], f(0.57) = 0.5, f(39.93)=10
-    a = 0.24
-    b = 0.36
+    a = 0.14
+    b = 0.42
     return a * x + b
 
 
@@ -724,7 +724,7 @@ def cli(area, ncores):
     )
     logging.info(f"factor for sample point: {FACTOR}")
     test_area_crawl2(
-        cover=COVER, factor=FACTOR, base_distance_points_ms=2500, ncores=ncores
+        cover=COVER, factor=FACTOR, base_distance_points_ms=2000, ncores=ncores
     )
 
 
