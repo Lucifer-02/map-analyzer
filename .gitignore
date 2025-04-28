@@ -185,7 +185,6 @@ go.work.sum
 
 # env file
 .env
-*.csv
 *.tif
 *.html
 *.zip
@@ -200,3 +199,5 @@ output*.csv
 *.ovr
 !google_maps_scraper-1.7.10-windows-amd64.exe
 ./datasets/population/*
+*.csv
+!V02.01.csv
