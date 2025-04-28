@@ -536,7 +536,10 @@ def test_area_crawl():
 
 
 def test_area_crawl2(
-    cover: Path, factor: float = 1, base_distance_points_ms: float = 2000
+    cover: Path,
+    factor: float = 1,
+    base_distance_points_ms: float = 2500,
+    ncores: int = 4,
 ):
     logging.info("Start crawl...")
     # --------setup--------------
@@ -551,6 +554,7 @@ def test_area_crawl2(
         points = utils.find_points_in_polygon(
             polygon=poly, distance_points_ms=DISTANCE_POINTS_MS
         )
+        viz.map_points(points)
 
         if len(points) == 0:
             continue
@@ -563,7 +567,9 @@ def test_area_crawl2(
             save_path = Path(f"./datasets/raw/oss/{cover.stem}_{i+FROM_IDX}.parquet")
             if save_path.exists() == False:
                 try:
-                    pois = crawler.crawl(center=point, keywords=ALL_TYPES, ncores=4)
+                    pois = crawler.crawl(
+                        center=point, keywords=ALL_TYPES, ncores=ncores
+                    )
                     result = utils.filter_within_polygon1(df=pois, poly=poly)
                     logging.info(f"Result after filted all outside the area: {result}")
                     result.write_parquet(save_path)
@@ -689,32 +695,29 @@ def post_process_atm2():
 
 # according pop density of Tong cuc thong ke
 def scale(x: float) -> float:
-    return x * (175 / 1968) + (
-        1179 / 2624
-    )  # f(x) = ax+b, f in [0.5;4] and x in [0.57;39.93])
+    # f(x) = ax+b, f in [0.5;10] and x in [0.57;39.93], f(0.57) = 0.5, f(39.93)=10
+    a = 0.24
+    b = 0.36
+    return a * x + b
+
+
+def factor(densities: pl.DataFrame, area: Path) -> float:
+    BASE_DENSITY = 2555.8  # hanoi
+
+    target_density = densities.filter(pl.col("area").eq(area.stem))[0, "density"]
+
+    return scale(
+        BASE_DENSITY / target_density
+    )  # (hanoi pop density) / (district pop density)
 
 
 def main():
-    COVER = Path("./queries/ha_tinh.geojson")
-    FACTOR = scale(2555.8 / 220.8)  # (hanoi pop density) / (district pop density)
+    COVER = Path("./queries/nghe_an.geojson")
+    FACTOR = factor(
+        densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
+    )
     logging.info(f"factor for sample point: {FACTOR}")
-    test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2500)
-    # test_area_crawl2(cover=COVER, base_distance_points_ms=2600)
-    # test_area_crawl()
-    # test_hoankiem()
-    # places_within_radius(center=Point(21.019430, 105.836551), radius_km=2.0)
-    # test_around_point()
-    # test_around_points()
-    # test_population()
-    # test_pop_in_radius()
-    # add_pop_around_poi()
-    # test_google_api()
-    # test_near_api()
-    # test_area_api()
-    # test_point_radius_api()
-    # test_vietnam_population()
-    # test_crawl_atm_places_within_radius()
-    # post_process_atm2()
+    test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2500, ncores=4)
 
 
 if __name__ == "__main__":
