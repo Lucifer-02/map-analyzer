@@ -11,6 +11,7 @@ import rasterio
 import googlemaps
 from tqdm import tqdm
 import geopandas as gpd
+import click
 
 from engines.gosom_scraper import crawler
 from engines.google_api import places_api
@@ -695,7 +696,7 @@ def post_process_atm2():
 
 # according pop density of Tong cuc thong ke
 def scale(x: float) -> float:
-    # f(x) = ax+b, f in [0.5;10] and x in [0.57;39.93], f(0.57) = 0.5, f(39.93)=10
+    # f(x) = ax+b, f in [0.5;6] and x in [0.57;39.93], f(0.57) = 0.5, f(39.93)=6
     a = 0.14
     b = 0.42
     return a * x + b
@@ -709,9 +710,6 @@ def factor(densities: pl.DataFrame, area: Path) -> float:
     return scale(
         BASE_DENSITY / target_density
     )  # (hanoi pop density) / (district pop density)
-
-
-import click
 
 
 @click.command()
