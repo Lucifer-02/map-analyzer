@@ -711,13 +711,31 @@ def factor(densities: pl.DataFrame, area: Path) -> float:
     )  # (hanoi pop density) / (district pop density)
 
 
-def main():
-    COVER = Path("./queries/nghe_an.geojson")
+import click
+
+
+@click.command()
+@click.argument("area")
+@click.option("--ncores", default=2, help="number of cores to use")
+def cli(area, ncores):
+    COVER = Path(area)
     FACTOR = factor(
         densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
     )
     logging.info(f"factor for sample point: {FACTOR}")
-    test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2500, ncores=4)
+    test_area_crawl2(
+        cover=COVER, factor=FACTOR, base_distance_points_ms=2500, ncores=ncores
+    )
+
+
+def main():
+    # COVER = Path("./queries/nghe_an.geojson")
+    # FACTOR = factor(
+    #     densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
+    # )
+    # logging.info(f"factor for sample point: {FACTOR}")
+    # test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2500, ncores=4)
+    cli()
 
 
 if __name__ == "__main__":
