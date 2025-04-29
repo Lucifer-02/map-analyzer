@@ -538,6 +538,7 @@ def test_area_crawl():
 
 def test_area_crawl2(
     cover: Path,
+    radius: float = 2000,
     factor: float = 1,
     base_distance_points_ms: float = 2500,
     ncores: int = 4,
@@ -555,10 +556,11 @@ def test_area_crawl2(
         points = utils.find_points_in_polygon(
             polygon=poly, distance_points_ms=DISTANCE_POINTS_MS
         )
-        viz.map_points(points)
 
         if len(points) == 0:
             continue
+
+        viz.map_points(points)
 
         FROM_IDX = 0
         for i, point in enumerate(points[FROM_IDX:]):
@@ -569,7 +571,11 @@ def test_area_crawl2(
             if save_path.exists() == False:
                 try:
                     pois = crawler.crawl(
-                        center=point, keywords=ALL_TYPES, ncores=ncores
+                        center=point,
+                        keywords=ALL_TYPES,
+                        ncores=ncores,
+                        radius=radius,
+                        area=cover.stem.replace("_", " "), # extract area name
                     )
                     result = utils.filter_within_polygon1(df=pois, poly=poly)
                     logging.info(f"Result after filted all outside the area: {result}")
@@ -722,7 +728,11 @@ def cli(area, ncores):
     )
     logging.info(f"factor for sample point: {FACTOR}")
     test_area_crawl2(
-        cover=COVER, factor=FACTOR, base_distance_points_ms=2000, ncores=ncores
+        cover=COVER,
+        factor=FACTOR,
+        base_distance_points_ms=2500,
+        ncores=ncores,
+        radius=5000,
     )
 
 
