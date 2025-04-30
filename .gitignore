@@ -201,3 +201,4 @@ output*.csv
 ./datasets/population/*
 *.csv
 !V02.01.csv
+!checklist.csv
