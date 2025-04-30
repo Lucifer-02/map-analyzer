@@ -730,7 +730,7 @@ def cli(area, ncores):
     test_area_crawl2(
         cover=COVER,
         factor=FACTOR,
-        base_distance_points_ms=3000,
+        base_distance_points_ms=3500,
         ncores=ncores,
         radius=5000,
     )

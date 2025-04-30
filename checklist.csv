@@ -14,7 +14,7 @@ can_tho,not
 cao_bang,not
 dak_lak,not
 dak_nong,not
-da_nang,not
+da_nang,crawling
 dien_bien,done
 dong_nai,not
 dong_thap,not
@@ -38,7 +38,7 @@ lam_dong,not
 lang_son,not
 lao_cai,not
 long_an,not
-nam_dinh,not
+nam_dinh,crawling
 nghe_an,done
 ninh_binh,not
 ninh_thuan,not
