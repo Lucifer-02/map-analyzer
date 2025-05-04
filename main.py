@@ -548,6 +548,9 @@ def test_area_crawl2(
     with open(cover, "r", encoding="utf8") as f:
         data = json.load(f)
     polys = utils.geojson_to_polygons(data)
+    assert len(polys) >= 1
+
+    logging.info(f"Found {len(polys)} polygons.")
     DISTANCE_POINTS_MS = base_distance_points_ms * factor
 
     # print(polys)

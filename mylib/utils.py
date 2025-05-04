@@ -185,6 +185,14 @@ def geojson_to_polygons(data: Dict) -> List[Polygon]:
 
     match data.get("type"):
 
+        case "Polygon":
+            polygon_coords = data.get("coordinates", [])
+
+            # polygon_coords[0] should be the outer ring
+            outer_ring = polygon_coords[0]
+            poly = Polygon(outer_ring)
+            polygons.append(poly)
+
         case "MultiPolygon":
             # 'coordinates' for MultiPolygon is an array of polygons
             # Each polygon is an array of linear rings

@@ -202,3 +202,4 @@ output*.csv
 *.csv
 !V02.01.csv
 !checklist.csv
+archives/*
