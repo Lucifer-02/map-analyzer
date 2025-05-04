@@ -552,7 +552,7 @@ def test_area_crawl2(
 
     # print(polys)
 
-    for poly in polys:
+    for pyly_idx, poly in enumerate(polys):
         points = utils.find_points_in_polygon(
             polygon=poly, distance_points_ms=DISTANCE_POINTS_MS
         )
@@ -562,12 +562,11 @@ def test_area_crawl2(
 
         viz.map_points(points)
 
-        FROM_IDX = 0
-        for i, point in enumerate(points[FROM_IDX:]):
+        for i, point in enumerate(points):
             logging.info(
-                f"Crawling {i+1}/{len(points[FROM_IDX:])} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
+                f"Crawling {i+1}/{len(points)} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
             )
-            save_path = Path(f"./datasets/raw/oss/{cover.stem}_{i+FROM_IDX}.parquet")
+            save_path = Path(f"./datasets/raw/oss/{cover.stem}_{pyly_idx}_{i}.parquet")
             if save_path.exists() == False:
                 try:
                     pois = crawler.crawl(
@@ -575,7 +574,7 @@ def test_area_crawl2(
                         keywords=ALL_TYPES,
                         ncores=ncores,
                         radius=radius,
-                        area=cover.stem.replace("_", " "), # extract area name
+                        area=cover.stem.replace("_", " "),  # extract area name
                     )
                     result = utils.filter_within_polygon1(df=pois, poly=poly)
                     logging.info(f"Result after filted all outside the area: {result}")
@@ -721,18 +720,27 @@ def factor(densities: pl.DataFrame, area: Path) -> float:
 @click.command()
 @click.argument("area")
 @click.option("--ncores", default=2, help="number of cores to use")
-def cli(area, ncores):
+@click.option(
+    "--base_distance_points_ms",
+    default=3500,
+    help="base distance(meter) between sample points",
+)
+@click.option("--radius", default=5000, help="radius to filter around a point")
+def cli(area, ncores, base_distance_points_ms, radius):
     COVER = Path(area)
     FACTOR = factor(
         densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
     )
-    logging.info(f"factor for sample point: {FACTOR}")
+
+    logging.info(
+        f"factor for sample point: {FACTOR}, radius: {radius}, base_distance_points_ms: {base_distance_points_ms}."
+    )
     test_area_crawl2(
         cover=COVER,
         factor=FACTOR,
-        base_distance_points_ms=3500,
+        base_distance_points_ms=base_distance_points_ms,
         ncores=ncores,
-        radius=5000,
+        radius=radius,
     )
 
 
