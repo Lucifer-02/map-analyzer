@@ -1,6 +1,6 @@
 run:
 	# clear
-	uv run ./main.py ./queries/ben_tre.geojson
+	uv run ./main.py
 	# python3 eda.py
 	# uv run test.py
 

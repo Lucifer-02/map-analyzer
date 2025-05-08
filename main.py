@@ -720,6 +720,126 @@ def factor(densities: pl.DataFrame, area: Path) -> float:
     )  # (hanoi pop density) / (district pop density)
 
 
+def summary():
+
+    # =================== summry each area =========================
+    areas = [
+        "an_giang",
+        "bac_giang",
+        "bac_lieu",
+        "binh_dinh",
+        "binh_duong",
+        "binh_phuoc",
+        "binh_thuan",
+        "ca_mau",
+        "can_tho",
+        "cao_bang",
+        "dak_nong",
+        "da_nang",
+        "dong_nai",
+        "gia_lai",
+        "ha_giang",
+        "ha_nam",
+        "hau_giang",
+        "hcm",
+        "hoa_binh",
+        "hung_yen",
+        "khanh_hoa",
+        "kien_giang",
+        "kon_tum",
+        "lai_chau",
+        "lam_dong",
+        "lang_son",
+        "long_an",
+        "nghe_an",
+        "ninh_binh",
+        "ninh_thuan",
+        "phu_yen",
+        "quang_nam",
+        "quang_ngai",
+        "quang_ninh",
+        "quang_tri",
+        "soc_trang",
+        "tay_ninh",
+        "thai_nguyen",
+        "thanh_hoa",
+        "tien_giang",
+        "tra_vinh",
+        "tuyen_quang",
+        "vinh_long",
+        "vung_tau",
+        "yen_bai",
+        "hue",
+        "bac_kan",
+        "bac_ninh",
+        "ben_tre",
+        "dak_lak",
+        "dien_bien",
+        "dong_thap",
+        "hai_duong",
+        "hai_phong",
+        "ha_noi",
+        "ha_tinh",
+        "lao_cai",
+        "nam_dinh",
+        "phu_tho",
+        "quang_binh",
+        "quang_ngai",
+        "son_la",
+        "thai_binh",
+        "vinh_phuc",
+    ]
+
+    for area in areas:
+        df = pl.read_parquet(f"./datasets/raw/oss/{area}_*.parquet").unique()
+        df.write_parquet(f"./datasets/raw/oss/summary/{area}.parquet")
+        print(area, len(df))
+
+    # =================== summry areas =========================
+
+    df = pl.read_parquet(
+        "./datasets/raw/oss/summary/*.parquet", allow_missing_columns=True
+    )
+
+    new_df = (
+        df.unique()
+        .with_columns(
+            is_poi_transport=pl.col("query").is_in(POI_GROUPS["group1"]).cast(pl.Int64)
+        )
+        .with_columns(
+            is_poi_ecom=pl.col("query").is_in(POI_GROUPS["group2"]).cast(pl.Int64)
+        )
+        .with_columns(
+            is_poi_popu=pl.col("query").is_in(POI_GROUPS["group3"]).cast(pl.Int64)
+        )
+        .with_columns(
+            is_ATM=(
+                pl.col("categories").str.contains("(atm)|(ATM)")
+                | pl.col("query").eq("atm")
+            ).cast(pl.Int64)
+        )
+        .with_columns([pl.arange(0, df.height).alias("id")])
+        .with_columns(pl.lit(datetime.now()).alias("created_date"))
+        .with_columns(pl.lit(datetime.now()).alias("updated_date"))
+    )
+
+    new_df.write_parquet("./datasets/results/vietnam_pois.parquet")
+
+
+from datetime import datetime
+
+
+def final_result():
+    df = pl.read_parquet("./datasets/results/vietnam.parquet")
+    result = (
+        df.drop(pl.col("query", "link", "categories", "complete_address"))
+        .rename({"title": "name"})
+        .unique()
+    )
+    print(result)
+    result.write_parquet("./vietnam_pois.parquet")
+
+
 @click.command()
 @click.argument("area")
 @click.option("--ncores", default=2, help="number of cores to use")
@@ -754,7 +874,10 @@ def main():
     # )
     # logging.info(f"factor for sample point: {FACTOR}")
     # test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2500, ncores=4)
-    cli()
+    # cli()
+
+    summary()
+    final_result()
 
 
 if __name__ == "__main__":
