@@ -874,10 +874,10 @@ def main():
     # )
     # logging.info(f"factor for sample point: {FACTOR}")
     # test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2500, ncores=4)
-    # cli()
+    cli()
 
-    summary()
-    final_result()
+    # summary()
+    # final_result()
 
 
 if __name__ == "__main__":
