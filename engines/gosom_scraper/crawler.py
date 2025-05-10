@@ -39,7 +39,7 @@ def crawl(
     with open(input_path, "w") as f:
         for keyword in keywords:
             f.write(
-                f"{keyword.replace('_', ' ')} in {area},vietnam #!#{keyword}\n"
+                f"{keyword.replace('_', ' ')} #!#{keyword}\n"
             )  # '#!#' for custom input id, see the repo doc
     output_path = Path(__file__).parent / Path(f"output_{ts}.csv")
 
