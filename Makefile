@@ -1,6 +1,6 @@
 run:
 	# clear
-	uv run ./main.py
+	uv run ./main.py ./queries/with_ocean/ha_noi.geojson 
 	# python3 eda.py
 	# uv run test.py
 
