@@ -38,7 +38,7 @@ def crawl(
     with open(input_path, "w") as f:
         for keyword in keywords:
             query_input = f"{keyword.replace('_', ' ')} #!#{keyword}\n"  # '#!#' for custom input id, see the repo doc
-            logging.info(f"Actual query input for engine: {query_input}.")
+            logging.debug(f"Actual query input for engine: {query_input}.")
             f.write(query_input)
 
     output_path = Path(__file__).parent / Path(f"output_{ts}.csv")
