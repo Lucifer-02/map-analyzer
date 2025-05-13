@@ -577,7 +577,6 @@ def test_area_crawl2(
                         keywords=ALL_TYPES,
                         ncores=ncores,
                         radius=radius,
-                        area=cover.stem.replace("_", " "),  # extract area name
                     )
                     result = utils.filter_within_polygon1(df=pois, poly=poly)
                     logging.info(f"Result after filted all outside the area: {result}")
@@ -832,7 +831,7 @@ from datetime import datetime
 def final_result():
     df = pl.read_parquet("./datasets/results/vietnam.parquet")
     result = (
-        df.drop(pl.col("query", "link", "categories", "complete_address"))
+        df.drop("query", "link", "categories", "complete_address")
         .rename({"title": "name"})
         .unique()
     )

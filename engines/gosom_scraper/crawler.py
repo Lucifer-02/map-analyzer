@@ -22,7 +22,6 @@ def point_to_string(point: Point) -> str:
 def crawl(
     keywords: Set[str],
     center: Point,
-    area: str = "",
     radius: float = 10000,
     zoom: int = 18,
     timeout: float = 0.5,
@@ -38,9 +37,10 @@ def crawl(
     input_path = Path(__file__).parent / Path(f"input_{ts}.txt")
     with open(input_path, "w") as f:
         for keyword in keywords:
-            f.write(
-                f"{keyword.replace('_', ' ')} in vietnam #!#{keyword}\n"
-            )  # '#!#' for custom input id, see the repo doc
+            query_input = f"{keyword.replace('_', ' ')} #!#{keyword}\n"  # '#!#' for custom input id, see the repo doc
+            logging.info(f"Actual query input for engine: {query_input}.")
+            f.write(query_input)
+
     output_path = Path(__file__).parent / Path(f"output_{ts}.csv")
 
     exe: str = ""
