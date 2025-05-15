@@ -7,11 +7,8 @@ from geopy.distance import Distance, geodesic
 import geopy.distance
 import shapely
 import geopy
-import polars as pl
 from shapely.geometry import Polygon
 import geopandas as gpd
-
-
 import polars as pl
 import numpy as np
 

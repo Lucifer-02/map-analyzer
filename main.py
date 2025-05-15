@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 import json
+from pprint import pprint
 
 from geopy.point import Point
 import polars as pl
@@ -235,7 +236,7 @@ def post_process_atm3():
     for atm in tqdm(atms[:]):
 
         try:
-            print(atm["LATITUDE"], atm["LONGITUDE"])
+            # print(atm["LATITUDE"], atm["LONGITUDE"])
             center = Point(latitude=atm["LATITUDE"], longitude=atm["LONGITUDE"])
             # print(center)
             pois_in_radius = utils.filter_within_radius(
@@ -255,7 +256,6 @@ def post_process_atm3():
             vcb_atm = filter_vcb_atm(pois=pois_in_radius)
             atm_vcb_radius1 = len(vcb_atm)
             atm_competitor_radius1 = count_atm - atm_vcb_radius1
-            # print(atm["CITY"])
 
             result = {}
             result.update(
@@ -289,16 +289,13 @@ def post_process_atm3():
 
 def add_areas(df: pl.DataFrame) -> pl.DataFrame:
     areas = [file for file in Path("./queries/temp").iterdir()]
-    # print(areas)
     results = []
     for area in tqdm(areas):
-        # print(area)
         with open(area, "r", encoding="utf8") as f:
             data = json.load(f)
         polygon = utils.geojson_to_polygons(data)[0]
         area_df = utils.add_area_col(df=df, poly=polygon, name=area.stem)
         results.append(area_df)
-        # print(area_df)
 
     result_df = pl.concat(results, how="vertical")
     return result_df
@@ -359,6 +356,31 @@ def refine_area(df: pl.DataFrame):
     return df.filter(pl.col("province") != "SONG THAN")
 
 
+def test():
+    df = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx").select(
+        pl.col("TYPE", "ATM_ID", "LATITUDE", "LONGITUDE", "CITY")
+    )
+    # df = atm_excel_preprocess(table=df)
+
+    # invalid_df = df.filter(
+    #     ~pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
+    #     ~pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
+    # )
+    # pprint(invalid_df.select("LATITUDE", "LONGITUDE").to_dicts())
+    valid_df = df.filter(
+        pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
+        pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
+    )
+
+    atms = valid_df.to_dicts()
+
+    for atm in tqdm(atms[:]):
+        # try:
+        center = Point(latitude=atm["LATITUDE"], longitude=atm["LONGITUDE"])
+        # except:
+        # print(f"Failed {atm}")
+
+
 def main():
     # COVER = Path("./queries/nghe_an.geojson")
     # FACTOR = factor(
@@ -368,14 +390,16 @@ def main():
     # test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2500, ncores=4)
     # cli()
 
-    # summary()
-    # final_result()
+    summary()
+    final_result()
 
-    # post_process_atm3()
+    post_process_atm3()
     df = pl.read_parquet("./counts.parquet")
     print(df)
     result = add_areas(df).drop("latitude", "longitude").rename({"area": "province"})
     print(result)
+
+    # test()
 
 
 if __name__ == "__main__":
