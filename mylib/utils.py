@@ -1,5 +1,4 @@
 import json
-import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import List, Dict
 
@@ -137,6 +136,18 @@ def filter_within_polygon(
     assert len(filtered) >= 0
     assert len(filtered) <= len(df)
     return filtered
+
+
+def add_area_col(
+    name: str,
+    df: pl.DataFrame,
+    poly: Polygon,
+    lat_col: str = "latitude",
+    lon_col: str = "longitude",
+):
+    return filter_within_polygon(
+        df=df, poly=poly, lat_col=lat_col, lon_col=lon_col
+    ).with_columns(pl.lit(name).alias("area"))
 
 
 def polygon_to_points(polygon: Polygon) -> List[Point]:
@@ -489,30 +500,6 @@ def test_filter_within_radius():
 
 
 def main():
-    # point1 = Point(21.025206, 105.848712)
-    # point2 = Point(21.0253751, 105.8512529)
-    # print(distance(point1, point2))
-    # test_polygon()
-    # test_circle()
-    # circle = draw_circle(
-    #     center=geopy.Point(21.025206, 105.848712), radius_meters=2.0, num_points=4
-    # )
-    # points = find_points_in_polygon(
-    #     polygon=points_to_polygon(circle),
-    #     distance_points_kms=0.9,
-    # )
-    # points.extend(circle)
-    # # display the points
-    #
-    # plt.plot(
-    #     [point.longitude for point in points],
-    #     [point.latitude for point in points],
-    #     "ro",
-    # )
-    # plt.show()
-
-    # print(city_mapping())
-
     test_filter_within_polygon()
     # test_filter_within_radius()
 

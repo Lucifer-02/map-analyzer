@@ -203,3 +203,4 @@ output*.csv
 !V02.01.csv
 !checklist.csv
 archives/*
+queries/temp/*

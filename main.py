@@ -1,156 +1,17 @@
 import logging
 from pathlib import Path
-from pprint import pprint
-from typing import Dict, List, Set
 import json
 
-import shapely
 from geopy.point import Point
 import polars as pl
 import rasterio
-import googlemaps
 from tqdm import tqdm
 import geopandas as gpd
 import click
 
 from engines.gosom_scraper import crawler
-from engines.google_api import places_api
 from mylib.population import pop_in_radius, _get_pop
-from mylib import ALL_TYPES, utils, POI_GROUPS, viz
-
-
-def test_hoankiem():
-    HOANKIEM_CORNERS = [
-        Point(21.019655, 105.86402),
-        Point(21.020777, 105.84170),
-        Point(21.039603, 105.84630),
-        Point(21.042487, 105.85754),
-    ]
-    DISTANCE_POINTS_KMS = 1.0
-    points = utils.find_points_in_polygon(
-        utils.points_to_polygon(HOANKIEM_CORNERS), DISTANCE_POINTS_KMS
-    )
-
-    crawler.crawl_in_area(points=points, keywords={"cafe"})
-
-
-def test_around_point():
-
-    poi = Point(21.019430, 105.836551)
-
-    logging.info(f"Starting crawl all places around {poi}")
-
-    circle = utils.draw_circle(center=poi, radius_meters=2000, num_points=4)
-
-    for dist in range(500, 1501, 500):
-        sample_points = utils.find_points_in_polygon(circle, dist)
-
-        viz.map_points(sample_points)
-        df = crawler.crawl_in_area(points=sample_points, keywords={"atm", "school"})
-        logging.info(
-            f"Result length: {len(df)}, dedupliced length: {len(df.unique())}, ratio: {1-(len(df) / len(df.unique()))}."
-        )
-
-    logging.info(f"Finished crawl all places around {poi}")
-
-
-def test_crawl_area():
-
-    poi = Point(21.019430, 105.836551)
-
-    logging.info(f"Starting crawl all places around {poi}")
-
-    circle = utils.draw_circle(center=poi, radius_meters=2000, num_points=4)
-
-    DISTANCE_SAMPLE_POINTS_MS = 500
-    sample_points = utils.find_points_in_polygon(circle, DISTANCE_SAMPLE_POINTS_MS)
-
-    viz.map_points(sample_points)
-    df = crawler.crawl_in_area(points=sample_points, keywords={"atm", "school"})
-    logging.info(
-        f"Result length: {len(df)}, dedupliced length: {len(df.unique())}, ratio: {1-(len(df) / len(df.unique()))}."
-    )
-
-    logging.info(f"Finished crawl all places around {poi}")
-
-
-def test_crawl_atm_places_within_radius():
-    # PDG
-    # df = pl.read_excel("./datasets/results/poi_with_coordinates_full.xlsx")
-    # hanoi_poi = df.filter(pl.col("Address Line 1").str.contains(r"(Ha Noi)|(Hanoi)"))
-    # pois = hanoi_poi.to_dicts()
-
-    # ATM
-    df = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx")
-
-    valid_df = df.filter(
-        pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
-        pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
-    )
-    filted = valid_df.filter(pl.col("CITY").str.contains(r"(HANOI)|(HA NOI)"))
-    atms = filted.to_dicts()
-
-    logging.info(f"There are {len(atms)} ATMs.")
-
-    START_IDX = 0
-    # make a list of dictionaries with keys are name,lat,lon
-    for i, poi in enumerate(atms[START_IDX:]):
-        output = Path(
-            f'./datasets/raw/oss/atms/ha_noi/atm_{poi["ATM_ID"]}_{START_IDX + i}.parquet'
-        )
-        if output.exists() == False:
-            result = crawl_places_within_radius(
-                center=Point(latitude=poi["LATITUDE"], longitude=poi["LONGITUDE"]),
-                radius_m=2000,
-                categories={"atm"},
-            )
-            result.write_parquet(output)
-            logging.info(
-                f'Written result for ATM id {poi["ATM_ID"]} with lat: {poi["LATITUDE"]} and lon: {poi["LONGITUDE"]} to {output}.'
-            )
-
-
-def test_around_points():
-    df = pl.read_excel("./datasets/results/poi_with_coordinates_full.xlsx")
-    # not contain "100","101","102","103","105","106","108","109","110","111","200","202","203","204","205"
-    hanoi_poi = df.filter(
-        pl.col("Address Line 1").str.contains(r"(Ha Noi)|(Hanoi)"),
-    )
-    # print(hanoi_poi)
-    logging.info(f"Found {len(hanoi_poi)} POIs in Hanoi")
-
-    # make a list of dictionaries with keys are name,lat,lon
-    pois = hanoi_poi.to_dicts()
-
-    for poi in pois:
-        crawler.crawl(center=Point(poi["lat"], poi["lon"]), keywords={"atm"})
-
-
-def crawl_places_within_radius(
-    center: Point,
-    radius_m: float,
-    categories: Set[str],
-    DISTANCE_SAMPLE_POINTS_MS: float = 1000,
-):
-    points_on_circle = utils.draw_circle(center=center, radius_meters=radius_m)
-    sample_points = utils.find_points_in_polygon(
-        polygon=points_on_circle,
-        distance_points_ms=DISTANCE_SAMPLE_POINTS_MS,
-    )
-    viz.map_points(sample_points)
-    logging.info(
-        f"Found {len(sample_points)} sample points around {center.format_decimal()}"
-    )
-
-    df = crawler.crawl_in_area(points=sample_points, keywords=categories)
-
-    return utils.filter_within_radius(
-        df,
-        lat_col="latitude",
-        lon_col="longitude",
-        radius_m=radius_m,
-        center=center,
-    )
+from mylib import ALL_TYPES, utils, POI_GROUPS, viz, AREAS
 
 
 def test_population():
@@ -186,357 +47,7 @@ def test_population():
     print(f"Total population within the area of interest: {total_population}")
 
 
-def test_vietnam_population():
-
-    # Specify the directory path
-    directory = Path(
-        "/media/lucifer/STORAGE/IMPORTANT/map-analyzer/queries/with_ocean/"
-    )
-
-    META_POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
-
-    GHS_POPULATION_DATASET = Path(
-        "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0.tif"
-    )
-    WORLDPOP_POPULATION_DATASET = Path(
-        "./datasets/population/vnm_pop_2024_CN_100m_R2024B_v1.tif"
-    )
-
-    CITY_MAP = utils.city_mapping()
-    # List all files (excluding directories)
-    files = [file for file in directory.glob("*.geojson")]  # Lists only .txt files
-
-    result = []
-
-    for file in tqdm(files):
-        cover_area = gpd.read_file(file)
-        try:
-            with rasterio.open(META_POPULATION_DATASET) as src:
-                total_population = _get_pop(src=src, aoi=cover_area)
-                result.append(
-                    {
-                        "area": CITY_MAP[file.name],
-                        "source": "meta",
-                        "population": total_population,
-                    }
-                )
-            with rasterio.open(GHS_POPULATION_DATASET) as src:
-                total_population = _get_pop(src=src, aoi=cover_area)
-                result.append(
-                    {
-                        "area": CITY_MAP[file.name],
-                        "source": "ghs",
-                        "population": total_population,
-                    }
-                )
-            with rasterio.open(WORLDPOP_POPULATION_DATASET) as src:
-                # total_population = _get_pop_2(
-                #     geojson_path=file, raster_path=WORLDPOP_POPULATION_DATASET
-                # )
-                total_population = _get_pop(src=src, aoi=cover_area)
-                result.append(
-                    {
-                        "area": CITY_MAP[file.name],
-                        "source": "worldpop",
-                        "population": total_population,
-                    }
-                )
-        except ValueError:
-            result.append(
-                {"area": CITY_MAP[file.name], "source": "ghs", "population": -1}
-            )
-    TCTK = (
-        pl.read_csv(Path("./datasets/population/tctk.csv"))
-        .with_columns(pl.lit("tctk").alias("source"))
-        .to_dicts()
-    )
-
-    result.extend(TCTK)
-
-    df = pl.DataFrame(result).sort("area")
-    print(df)
-    df.write_csv("pop.csv")
-
-
-def test_pop_in_radius():
-    POPULATION_DATASET = Path(
-        "./datasets/population/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0_R7_C29.tif"
-    )
-    with rasterio.open(POPULATION_DATASET) as src:
-        total_population = pop_in_radius(
-            center=Point(21.0197031, 105.8459557), radius_meters=2.0, dataset=src
-        )
-
-    print(f"Total population within the area of interest: {total_population}")
-
-
-def add_pop_around_poi():
-    hanoi_poi = pl.read_excel("./datasets/temp/around_poi_with_population.xlsx")
-
-    # make a list of dictionaries with keys are name,lat,lon
-    pois = hanoi_poi.to_dicts()
-
-    new_pois = []
-    POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
-    with rasterio.open(POPULATION_DATASET) as src:
-        for poi in pois:
-            print(f"Processing {poi}")
-            total_population = pop_in_radius(
-                center=Point(poi["lat"], poi["lon"]), radius_meters=2000, dataset=src
-            )
-            poi["population"] = total_population
-            new_pois.append(poi)
-
-    new_df = pl.DataFrame(new_pois)
-    new_df.write_excel("./datasets/temp/around_poi_with_population.xlsx")
-
-
-def test_api():
-    gmaps = googlemaps.Client(key="AIzaSyCDPST-2Vz3DBukf4sfkPZwUIUfJdHvwLQ")
-
-    # Define search parameters
-    location = Point(latitude=21.0212062, longitude=105.8343646)
-    radius = 2000
-    place_type = "school"
-    # keyword = "vietcombank"
-
-    results = places_api.nearby_search(
-        client=gmaps,
-        location=location,
-        radius=radius,
-        place_type=place_type,
-        # keyword=keyword,
-    )
-
-    # Process the results
-    print(len(results))
-    for result in results:
-        pprint(result)
-        print("---")
-
-
-def test_api_near():
-    # --------setup--------------
-    RADIUS = 1000
-    POI_TYPES = ["atm", "school"]
-
-    gmaps = googlemaps.Client(key="AIzaSyCDPST-2Vz3DBukf4sfkPZwUIUfJdHvwLQ")
-
-    # df = pl.read_excel(Path("./datasets/original/atm.xlsx"))
-    df = pl.read_excel(Path("./datasets/original/Mẫu 3 Pool ATM Data.xlsx"))
-    valid_df = df.filter(
-        pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
-        pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
-    )
-    hanoi_atms = valid_df.filter(pl.col("CITY").str.contains(r"(HANOI)|(HA NOI)"))
-
-    # --------start--------------
-    num_places = 0
-    records: List[Dict] = []
-
-    for i in tqdm(range(len(hanoi_atms[:10]))):
-        logging.info(f"Progress {i}/{len(hanoi_atms)}")
-        try:
-            atm_center = Point(
-                latitude=hanoi_atms["LATITUDE"][i],
-                longitude=hanoi_atms["LONGITUDE"][i],
-            )
-
-            places_around: List[places_api.DacPlace] = []
-            for poi_type in POI_TYPES:
-                places_around.extend(
-                    places_api.nearby_search(
-                        client=gmaps,
-                        location=atm_center,
-                        radius=RADIUS,
-                        place_type=poi_type,
-                    )
-                )
-
-            num_places += len(places_around)
-
-            # filter all place outside radius
-            for place in places_around:
-                if (
-                    utils.distance(
-                        atm_center, Point(latitude=place.lat, longitude=place.lon)
-                    )
-                    <= RADIUS
-                ):
-                    records.append(
-                        {
-                            "atm_center_id": hanoi_atms["ATM_ID"][i],
-                            "id": place.place_id,
-                            "lat": place.lat,
-                            "lon": place.lon,
-                            "name": place.name,
-                            "categories": ",".join(place.categories),
-                            "address": place.address,
-                        }
-                    )
-
-        except ValueError as e:
-            logging.error(f"{e} with record {hanoi_atms.select(pl.all())[i]}")
-
-    around = pl.DataFrame(records)
-    print(num_places)
-    print(around)
-
-    # save
-    around.write_parquet("./datasets/raw/arounds_hanoi_atm.parquet")
-
-
-def test_api_point_radius():
-    # --------setup--------------
-    gmaps = googlemaps.Client(key="AIzaSyCDPST-2Vz3DBukf4sfkPZwUIUfJdHvwLQ")
-
-    RADIUS = 2000
-    POI_TYPES = ["atm", "bank", "cafe", "school"]
-
-    poi = Point(21.019430, 105.836551)
-    DISTANCE_SAMPLE_POINTS_KMS = 0.8
-    circle = utils.draw_circle(center=poi, radius_meters=RADIUS, num_points=4)
-    sample_points = utils.find_points_in_polygon(circle, DISTANCE_SAMPLE_POINTS_KMS)
-
-    # --------start--------------
-    num_places = 0
-    records: List[Dict] = []
-
-    for point in tqdm(sample_points):
-        places_around: List[places_api.DacPlace] = []
-        for poi_type in POI_TYPES:
-            logging.info(f"Nearby searching for type {poi_type} on {point}")
-            places_around.extend(
-                places_api.nearby_search(
-                    client=gmaps,
-                    location=point,
-                    radius=RADIUS,
-                    place_type=poi_type,
-                )
-            )
-
-        num_places += len(places_around)
-
-        # remove all place outside the circle
-        for place in places_around:
-            if (
-                utils.distance(
-                    Point(latitude=place.lat, longitude=place.lon), point
-                ).meters
-                <= RADIUS
-            ):
-                records.append(
-                    {
-                        "id": place.place_id,
-                        "lat": place.lat,
-                        "lon": place.lon,
-                        "name": place.name,
-                        "categories": ",".join(place.categories),
-                        "address": place.address,
-                    }
-                )
-
-    pois = pl.DataFrame(records)
-    print(num_places)
-    print(pois)
-
-    # save
-    # pois.write_parquet("./datasets/raw/area_pois.parquet")
-
-
-def test_api_area():
-    # --------setup--------------
-    RADIUS = 1000
-    POI_TYPES = ["atm", "bank", "cafe", "hospital", "school"]
-    # POI_TYPES = ["hospital", "school"]
-    COVER = Path("./queries/ha_noi.geojson")
-    with open(COVER, "r", encoding="utf8") as f:
-        data = json.load(f)
-    poly = utils.geojson_to_polygon(data)
-    cover_points = utils.find_points_in_polygon(polygon=poly, distance_points_ms=1500)
-
-    gmaps = googlemaps.Client(key="AIzaSyCDPST-2Vz3DBukf4sfkPZwUIUfJdHvwLQ")
-
-    # --------start--------------
-    num_places = 0
-    records: List[Dict] = []
-
-    for i, point in enumerate(cover_points):
-        logging.info(f"Progress: {i+1}/{len(cover_points)}")
-
-        places_around: List[places_api.DacPlace] = []
-        for poi_type in POI_TYPES:
-            places_around.extend(
-                places_api.nearby_search(
-                    client=gmaps,
-                    location=point,
-                    radius=RADIUS,
-                    place_type=poi_type,
-                )
-            )
-
-        num_places += len(places_around)
-
-        # remove all place outside the polygon
-        for place in places_around:
-            if poly.contains(shapely.geometry.Point(place.lon, place.lat)):
-                records.append(
-                    {
-                        "id": place.place_id,
-                        "lat": place.lat,
-                        "lon": place.lon,
-                        "name": place.name,
-                        "categories": ",".join(place.categories),
-                        "address": place.address,
-                    }
-                )
-
-        logging.info(pl.DataFrame(records))
-
-    pois = pl.DataFrame(records)
-    print(num_places)
-    print(pois)
-    print(pois.unique())
-
-    # save
-    pois.write_parquet(f"{COVER.stem}.parquet")
-
-
-def test_area_crawl():
-    logging.info("Start crawl...")
-    # --------setup--------------
-    # POI_TYPES = ["atm", "bank", "cafe", "hospital", "school", "restaurant", "park"]
-    COVER = Path("./queries/with_ocean/vinh_phuc.geojson")
-    with open(COVER, "r", encoding="utf8") as f:
-        data = json.load(f)
-    poly = utils.geojson_to_polygon(data)
-    DISTANCE_POINTS_MS = 2000
-    points = utils.find_points_in_polygon(
-        polygon=poly, distance_points_ms=DISTANCE_POINTS_MS
-    )  # DONT CHANGE DISTANCE
-    # map_points(points)
-
-    # pois = crawler.crawl_in_area(points=points, keywords=list(ALL_TYPES))
-
-    FROM_IDX = 0
-    for i, point in enumerate(points[FROM_IDX:]):
-        logging.info(
-            f"Crawling {i+1}/{len(points[FROM_IDX:])} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {COVER}..."
-        )
-        save_path = Path(f"./datasets/raw/oss/{COVER.stem}_{i+FROM_IDX}.parquet")
-        if save_path.exists() == False:
-            try:
-                pois = crawler.crawl(center=point, keywords=ALL_TYPES, ncores=8)
-                result = utils.filter_within_polygon1(df=pois, poly=poly)
-                logging.info(f"Result after filted all outside the area: {result}")
-                result.write_parquet(save_path)
-            except Exception as e:
-                logging.error(f"Error for point {point}: {e}, skipping...")
-        else:
-            logging.info(f"The dataset {save_path} already exists, skipping...")
-
-
-def test_area_crawl2(
+def test_area_crawl(
     cover: Path,
     radius: float = 2000,
     factor: float = 1,
@@ -587,120 +98,6 @@ def test_area_crawl2(
                 logging.info(f"The dataset {save_path} already exists, skipping...")
 
 
-def classify_group2(category: str, group_dict: Dict[str, Set]) -> List[str]:
-
-    result = set()
-    for key in group_dict.keys():
-        if category.lower() in group_dict[key]:
-            result.add(key)
-
-    assert len(result) != 0
-    return list(result)
-
-
-# for new dataset
-def post_process_atm2():
-    # ATM
-    df = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx")
-    POPULATION_DATASET = Path("./datasets/population/vnm_general_2020.tif")
-
-    valid_df = df.filter(
-        pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
-        pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
-    )
-    # filted = valid_df.filter(pl.col("CITY").str.contains(r"(HANOI)|(HA NOI)"))
-    # filted = valid_df.filter(pl.col("CITY").str.contains(r"(HCM)|(HO CHI MINH)"))
-    filted = valid_df.filter(
-        pl.col("CITY").str.contains(r"(HCM)|(HO CHI MINH)|(HANOI)|(HA NOI)")
-    )
-    atms = filted.to_dicts()
-
-    # print(atms)
-    files = []
-
-    files.append(list(Path("./datasets/raw/oss/").glob("ha_noi_*.parquet")))
-    files.append(list(Path("./datasets/raw/oss/").glob("hcm_*.parquet")))
-
-    dfs = [pl.read_parquet(file) for file in files]
-
-    places = pl.concat(dfs).unique(subset=["link"])
-
-    places_group = places.with_columns(
-        pl.col("query")
-        .map_elements(
-            lambda x: classify_group2(category=x, group_dict=POI_GROUPS),
-            return_dtype=pl.DataType.from_python(list[str]),
-        )
-        .alias("group")
-    )
-    print(places_group)
-
-    result = pl.DataFrame()
-
-    for atm in tqdm(atms):
-        logging.info(f'Adding groups count for ATM {atm["ATM_ID"]}')
-        try:
-            center = Point(
-                latitude=atm["LATITUDE"],
-                longitude=atm["LONGITUDE"],
-            )
-
-            pois = utils.filter_within_radius(
-                places_group,
-                lat_col="latitude",
-                lon_col="longitude",
-                radius_m=1000,
-                center=center,
-            )
-            count_pois = pois.explode("group").group_by("group").len().drop_nulls()
-
-            atm.update(
-                {
-                    count_pois.filter(pl.col("group").eq("group1"))
-                    .row(0)[0]: count_pois.filter(pl.col("group").eq("group1"))
-                    .row(0)[1],
-                    count_pois.filter(pl.col("group").eq("group2"))
-                    .row(0)[0]: count_pois.filter(pl.col("group").eq("group2"))
-                    .row(0)[1],
-                    count_pois.filter(pl.col("group").eq("group3"))
-                    .row(0)[0]: count_pois.filter(pl.col("group").eq("group3"))
-                    .row(0)[1],
-                    count_pois.filter(pl.col("group").eq("group4"))
-                    .row(0)[0]: count_pois.filter(pl.col("group").eq("group4"))
-                    .row(0)[1],
-                }
-            )
-            with_groups = pl.DataFrame(atm)
-            # print(with_groups)
-
-            with rasterio.open(POPULATION_DATASET) as src:
-                total_population = pop_in_radius(
-                    center=center, radius_meters=1000, dataset=src
-                )
-                with_groups_pop = with_groups.hstack(
-                    [pl.Series("population(radius 1 kms)", [total_population])]
-                )
-
-            result.vstack(with_groups_pop, in_place=True)
-
-        except ValueError as e:
-            logging.error(
-                f'Error: {e}, ATM id: {atm["ATM_ID"]}, point: {atm["LATITUDE"], atm["LONGITUDE"]}',
-                stack_info=True,
-            )
-        except pl.exceptions.OutOfBoundsError as e:
-            logging.error(
-                f'Not found groups in ATM id: {atm["ATM_ID"]}, point: {atm["LATITUDE"], atm["LONGITUDE"]}, Error: {e}',
-                stack_info=True,
-            )
-
-    print(result)
-
-    logging.info(f"Finished adding to {len(result)} ATMs")
-
-    result.write_excel("./datasets/results/atms.xlsx")
-
-
 # according pop density of Tong cuc thong ke
 def scale(x: float) -> float:
     # f(x) = ax+b, f in [0.5;6] and x in [0.57;39.93], f(0.57) = 0.5, f(39.93)=6
@@ -722,76 +119,11 @@ def factor(densities: pl.DataFrame, area: Path) -> float:
 def summary():
 
     # =================== summry each area =========================
-    areas = [
-        "an_giang",
-        "bac_giang",
-        "bac_lieu",
-        "binh_dinh",
-        "binh_duong",
-        "binh_phuoc",
-        "binh_thuan",
-        "ca_mau",
-        "can_tho",
-        "cao_bang",
-        "dak_nong",
-        "da_nang",
-        "dong_nai",
-        "gia_lai",
-        "ha_giang",
-        "ha_nam",
-        "hau_giang",
-        "hcm",
-        "hoa_binh",
-        "hung_yen",
-        "khanh_hoa",
-        "kien_giang",
-        "kon_tum",
-        "lai_chau",
-        "lam_dong",
-        "lang_son",
-        "long_an",
-        "nghe_an",
-        "ninh_binh",
-        "ninh_thuan",
-        "phu_yen",
-        "quang_nam",
-        "quang_ngai",
-        "quang_ninh",
-        "quang_tri",
-        "soc_trang",
-        "tay_ninh",
-        "thai_nguyen",
-        "thanh_hoa",
-        "tien_giang",
-        "tra_vinh",
-        "tuyen_quang",
-        "vinh_long",
-        "vung_tau",
-        "yen_bai",
-        "hue",
-        "bac_kan",
-        "bac_ninh",
-        "ben_tre",
-        "dak_lak",
-        "dien_bien",
-        "dong_thap",
-        "hai_duong",
-        "hai_phong",
-        "ha_noi",
-        "ha_tinh",
-        "lao_cai",
-        "nam_dinh",
-        "phu_tho",
-        "quang_binh",
-        "quang_ngai",
-        "son_la",
-        "thai_binh",
-        "vinh_phuc",
-    ]
 
-    for area in areas:
+    for area in AREAS:
         df = pl.read_parquet(f"./datasets/raw/oss/{area}_*.parquet").unique()
-        df.write_parquet(f"./datasets/raw/oss/summary/{area}.parquet")
+        new_df = df.with_columns(pl.lit(area).alias("province"))
+        new_df.write_parquet(f"./datasets/raw/oss/summary/{area}.parquet")
         print(area, len(df))
 
     # =================== summry areas =========================
@@ -822,7 +154,7 @@ def summary():
         .with_columns(pl.lit(datetime.now()).alias("updated_date"))
     )
 
-    new_df.write_parquet("./datasets/results/vietnam_pois.parquet")
+    new_df.write_parquet("./datasets/results/vietnam.parquet")
 
 
 from datetime import datetime
@@ -857,13 +189,174 @@ def cli(area, ncores, base_distance_points_ms, radius):
     logging.info(
         f"factor for sample point: {FACTOR}, radius: {radius}, base_distance_points_ms: {base_distance_points_ms}."
     )
-    test_area_crawl2(
+    test_area_crawl(
         cover=COVER,
         factor=FACTOR,
         base_distance_points_ms=base_distance_points_ms,
         ncores=ncores,
         radius=radius,
     )
+
+
+def filter_vcb_atm(pois: pl.DataFrame) -> pl.DataFrame:
+    return pois.filter(pl.col("is_ATM").eq(1)).filter(
+        pl.col("name").str.to_lowercase().str.contains("(vcb)|(vietcombank)")
+    )
+
+
+def atm_excel_preprocess(table: pl.DataFrame) -> pl.DataFrame:
+    return table.with_columns(
+        pl.col("LATITUDE").str.strip_chars().alias("LATITUDE"),
+        pl.col("LONGITUDE").str.strip_chars().alias("LONGITUDE"),
+    )
+
+
+def post_process_atm3():
+    POPULATION_DATASET = Path(
+        "./datasets/population/vnm_pop_2024_CN_100m_R2024B_v1.tif"
+    )
+
+    df = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx").select(
+        pl.col("TYPE", "ATM_ID", "LATITUDE", "LONGITUDE", "CITY")
+    )
+    df = atm_excel_preprocess(table=df)
+
+    valid_df = df.filter(
+        pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
+        pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
+    )
+    pois = pl.read_parquet("./vietnam_pois.parquet")
+    # print(pois)
+    # print(pois.schema)
+    # print(valid_df)
+    atms = valid_df.to_dicts()
+
+    results = []
+    for atm in tqdm(atms[:]):
+
+        try:
+            print(atm["LATITUDE"], atm["LONGITUDE"])
+            center = Point(latitude=atm["LATITUDE"], longitude=atm["LONGITUDE"])
+            # print(center)
+            pois_in_radius = utils.filter_within_radius(
+                df=pois,
+                lat_col="latitude",
+                lon_col="longitude",
+                radius_m=1000,
+                center=center,
+            )
+            # print(pois_in_radius)
+            poi_transport_radius1 = pois_in_radius.select(
+                pl.col("is_poi_transport").sum()
+            ).item()
+            poi_pop_radius1 = pois_in_radius.select(pl.col("is_poi_popu").sum()).item()
+            poi_ecom_radius1 = pois_in_radius.select(pl.col("is_poi_ecom").sum()).item()
+            count_atm = len(pois_in_radius.filter(pl.col("is_ATM").eq(1)))
+            vcb_atm = filter_vcb_atm(pois=pois_in_radius)
+            atm_vcb_radius1 = len(vcb_atm)
+            atm_competitor_radius1 = count_atm - atm_vcb_radius1
+            # print(atm["CITY"])
+
+            result = {}
+            result.update(
+                {
+                    "poi_transport_radius1": poi_transport_radius1,
+                    "poi_ecom_radius1": poi_ecom_radius1,
+                    "poi_pop_radius1": poi_pop_radius1,
+                    "atm_vcb_radius1": atm_vcb_radius1,
+                    "atm_competitor_radius1": atm_competitor_radius1,
+                    "created_dated": datetime.now(),
+                    "amt_id": atm["ATM_ID"],
+                    # "province": atm["CITY"],
+                    "latitude": atm["LATITUDE"],
+                    "longitude": atm["LONGITUDE"],
+                }
+            )
+
+            with rasterio.open(POPULATION_DATASET) as src:
+                total_population = pop_in_radius(
+                    center=center, radius_meters=1000, dataset=src
+                )
+                result.update({"population_radius1": total_population})
+            results.append(result)
+
+        except Exception as e:
+            logging.error(f"Failed: {e} for {atm}.")
+
+    results_df = pl.DataFrame(results)
+    results_df.write_parquet("counts.parquet")
+
+
+def add_areas(df: pl.DataFrame) -> pl.DataFrame:
+    areas = [file for file in Path("./queries/temp").iterdir()]
+    # print(areas)
+    results = []
+    for area in tqdm(areas):
+        # print(area)
+        with open(area, "r", encoding="utf8") as f:
+            data = json.load(f)
+        polygon = utils.geojson_to_polygons(data)[0]
+        area_df = utils.add_area_col(df=df, poly=polygon, name=area.stem)
+        results.append(area_df)
+        # print(area_df)
+
+    result_df = pl.concat(results, how="vertical")
+    return result_df
+
+
+# adhoc fix excel atm original "CITY" col
+def refine_area(df: pl.DataFrame):
+    df = df.with_columns(
+        pl.col("province").str.replace_all("LAMDONG", "LAM DONG").alias("province")
+    )
+    df = df.with_columns(
+        pl.col("province")
+        .str.replace_all(
+            "(BR - VT)|(BR - VUNG TAU)|(BR - VUNGTAU)|(BR VUNGTAU)", "BR-VT"
+        )
+        .alias("province")
+    )
+    df = df.with_columns(
+        pl.col("province")
+        .str.replace_all("(002407)|(HO CHI MINH)|(HOCHIMINH)", "HCM")
+        .alias("province")
+    )
+
+    df = df.with_columns(
+        pl.col("province")
+        .str.replace_all("(TT HUE)|(TP HUE)|(HOCHIMINH)", "HCM")
+        .alias("province")
+    )
+
+    df = df.with_columns(
+        pl.col("province").str.replace_all("(DAKLAK)", "DAK LAK").alias("province")
+    )
+
+    df = df.with_columns(
+        pl.col("province").str.replace_all("(BACNINH)", "BAC NINH").alias("province")
+    )
+
+    df = df.with_columns(
+        pl.col("province").str.replace_all("(SOCTRANG)", "SOC TRANG").alias("province")
+    )
+
+    df = df.with_columns(
+        pl.col("province").str.replace_all("(Quang Nam)", "QUANG NAM").alias("province")
+    )
+
+    df = df.with_columns(
+        pl.col("province").str.replace_all("(RACH GIA)", "KIEN GIANG").alias("province")
+    )
+    df = df.with_columns(
+        pl.col("province")
+        .str.replace_all("(DUNG QUAT)", "QUANG NGAI")
+        .alias("province")
+    )
+    df = df.with_columns(
+        pl.col("province").str.replace_all("(CAM RANH)", "KHANH HOA").alias("province")
+    )
+
+    return df.filter(pl.col("province") != "SONG THAN")
 
 
 def main():
@@ -873,10 +366,16 @@ def main():
     # )
     # logging.info(f"factor for sample point: {FACTOR}")
     # test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2500, ncores=4)
-    cli()
+    # cli()
 
     # summary()
     # final_result()
+
+    # post_process_atm3()
+    df = pl.read_parquet("./counts.parquet")
+    print(df)
+    result = add_areas(df).drop("latitude", "longitude").rename({"area": "province"})
+    print(result)
 
 
 if __name__ == "__main__":
