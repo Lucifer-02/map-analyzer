@@ -205,10 +205,27 @@ def filter_vcb_atm(pois: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def atm_excel_preprocess(table: pl.DataFrame) -> pl.DataFrame:
-    return table.with_columns(
-        pl.col("LATITUDE").str.strip_chars().alias("LATITUDE"),
-        pl.col("LONGITUDE").str.strip_chars().alias("LONGITUDE"),
+def atm_excel_preprocess() -> pl.DataFrame:
+
+    df1 = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx").select(
+        pl.col("ATM_ID", "LATITUDE", "LONGITUDE")
+    )
+    df2 = pl.read_csv("./datasets/original/more_atms.csv").select(
+        pl.col("ATM_ID", "LATITUDE", "LONGITUDE").cast(pl.String),
+    )
+
+    table = pl.concat([df1, df2])
+
+    return (
+        table.unique(subset=["ATM_ID"])
+        .with_columns(
+            pl.col("LATITUDE").str.strip_chars().alias("LATITUDE"),
+            pl.col("LONGITUDE").str.strip_chars().alias("LONGITUDE"),
+        )
+        .filter(
+            pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
+            pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
+        )
     )
 
 
@@ -217,20 +234,11 @@ def post_process_atm3():
         "./datasets/population/vnm_pop_2024_CN_100m_R2024B_v1.tif"
     )
 
-    df = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx").select(
-        pl.col("TYPE", "ATM_ID", "LATITUDE", "LONGITUDE", "CITY")
-    )
-    df = atm_excel_preprocess(table=df)
-
-    valid_df = df.filter(
-        pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
-        pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
-    )
     pois = pl.read_parquet("./vietnam_pois.parquet")
     # print(pois)
     # print(pois.schema)
     # print(valid_df)
-    atms = valid_df.to_dicts()
+    atms = atm_excel_preprocess().to_dicts()
 
     results = []
     for atm in tqdm(atms[:]):
@@ -390,16 +398,15 @@ def main():
     # test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2500, ncores=4)
     # cli()
 
-    summary()
-    final_result()
+    # summary()
+    # final_result()
 
     post_process_atm3()
     df = pl.read_parquet("./counts.parquet")
     print(df)
     result = add_areas(df).drop("latitude", "longitude").rename({"area": "province"})
     print(result)
-
-    # test()
+    result.write_parquet("./atm_pois_summary.parquet")
 
 
 if __name__ == "__main__":
