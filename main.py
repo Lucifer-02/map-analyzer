@@ -1,18 +1,18 @@
-import logging
-from pathlib import Path
 import json
-from pprint import pprint
+import logging
+from datetime import datetime
+from pathlib import Path
 
-from geopy.point import Point
+import click
+import geopandas as gpd
 import polars as pl
 import rasterio
+from geopy.point import Point
 from tqdm import tqdm
-import geopandas as gpd
-import click
 
 from engines.gosom_scraper import crawler
-from mylib.population import pop_in_radius, _get_pop
-from mylib import ALL_TYPES, utils, POI_GROUPS, viz, AREAS
+from mylib import ALL_TYPES, AREAS, POI_GROUPS, utils, viz
+from mylib.population import _get_pop, pop_in_radius
 
 
 def test_population():
@@ -79,10 +79,10 @@ def test_area_crawl(
 
         for i, point in enumerate(points):
             logging.info(
-                f"Crawling {i+1}/{len(points)} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
+                f"Crawling {i + 1}/{len(points)} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
             )
             save_path = Path(f"./datasets/raw/oss/{cover.stem}_{pyly_idx}_{i}.parquet")
-            if save_path.exists() == False:
+            if not save_path.exists():
                 try:
                     pois = crawler.crawl(
                         center=point,
@@ -118,7 +118,6 @@ def factor(densities: pl.DataFrame, area: Path) -> float:
 
 
 def summary():
-
     # =================== summry each area =========================
 
     for area in AREAS:
@@ -156,9 +155,6 @@ def summary():
     )
 
     new_df.write_parquet("./datasets/results/vietnam.parquet")
-
-
-from datetime import datetime
 
 
 def final_result():
@@ -205,8 +201,20 @@ def filter_vcb_atm(pois: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def atm_excel_preprocess() -> pl.DataFrame:
+def filter_vcb(pois: pl.DataFrame) -> pl.DataFrame:
+    return pois.filter(
+        pl.col("name").str.to_lowercase().str.contains("(vcb)|(vietcombank)")
+    )
 
+
+def filter_pgd(pois: pl.DataFrame) -> pl.DataFrame:
+    return pois.filter(
+        pl.col("name").str.to_lowercase().str.contains(r"(pgd)|(phòng giao dịch)"),
+        pl.col("category").str.contains(r"(Bank)|(ATM)"),
+    )
+
+
+def atm_excel_preprocess() -> pl.DataFrame:
     df1 = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx").select(
         pl.col("ATM_ID", "LATITUDE", "LONGITUDE")
     )
@@ -229,7 +237,82 @@ def atm_excel_preprocess() -> pl.DataFrame:
     )
 
 
-def post_process_atm3():
+def post_process_pgd():
+    POPULATION_DATASET = Path(
+        "./datasets/population/vnm_pop_2024_CN_100m_R2024B_v1.tif"
+    )
+
+    pois = pl.read_parquet("./vietnam_pois.parquet")
+    # print(pois)
+    # print(pois.schema)
+    # print(valid_df)
+
+    # TODO
+    pgds = pl.read_excel("./datasets/original/dim_region.xlsx").to_dicts()
+
+    results = []
+    for pgd in tqdm(pgds[:]):
+        # for pgd in pgds[:]:
+        try:
+            #         # print(atm["LATITUDE"], atm["LONGITUDE"])
+            center = Point(latitude=pgd["NewLatitude"], longitude=pgd["NewLongitude"])
+            # print(center)
+            pois_in_radius = utils.filter_within_radius(
+                df=pois,
+                lat_col="latitude",
+                lon_col="longitude",
+                radius_m=1000,
+                center=center,
+            )
+            # print(pois_in_radius)
+            poi_transport_radius1 = pois_in_radius.select(
+                pl.col("is_poi_transport").sum()
+            ).item()
+            poi_pop_radius1 = pois_in_radius.select(pl.col("is_poi_popu").sum()).item()
+            poi_ecom_radius1 = pois_in_radius.select(pl.col("is_poi_ecom").sum()).item()
+            # count_atm = len(pois_in_radius.filter(pl.col("categories").str.contains(r'(Bank)'))
+
+            count_pgds = len(filter_pgd(pois=pois_in_radius))
+            # print("pgd num: ", count_pgds)
+
+            vcb_pgd = filter_vcb(pois=filter_pgd(pois_in_radius))
+            pgd_vcb_radius1 = len(vcb_pgd)
+            # print("pgd vcb num: ", pgd_vcb_radius1)
+            pgd_competitor_radius1 = count_pgds - pgd_vcb_radius1
+
+            result = {}
+            result.update(
+                {
+                    "poi_transport_radius1": poi_transport_radius1,
+                    "poi_ecom_radius1": poi_ecom_radius1,
+                    "poi_pop_radius1": poi_pop_radius1,
+                    "pgd_vcb_radius1": pgd_vcb_radius1,
+                    "pgd_competitor_radius1": pgd_competitor_radius1,
+                    "created_dated": datetime.now(),
+                    "pgd_id": pgd["DVGS"],
+                    # "province": atm["CITY"],
+                    "latitude": pgd["NewLatitude"],
+                    "longitude": pgd["NewLongitude"],
+                }
+            )
+
+            with rasterio.open(POPULATION_DATASET) as src:
+                total_population = pop_in_radius(
+                    center=center, radius_meters=1000, dataset=src
+                )
+                result.update({"population_radius1": total_population})
+
+            results.append(result)
+
+        except Exception as e:
+            logging.error(f"Failed: {e} for {pgd}.")
+
+    results_df = pl.DataFrame(results)
+    print(results_df)
+    results_df.write_parquet("count_pgds.parquet")
+
+
+def post_process_atm():
     POPULATION_DATASET = Path(
         "./datasets/population/vnm_pop_2024_CN_100m_R2024B_v1.tif"
     )
@@ -242,7 +325,6 @@ def post_process_atm3():
 
     results = []
     for atm in tqdm(atms[:]):
-
         try:
             # print(atm["LATITUDE"], atm["LONGITUDE"])
             center = Point(latitude=atm["LATITUDE"], longitude=atm["LONGITUDE"])
@@ -292,7 +374,7 @@ def post_process_atm3():
             logging.error(f"Failed: {e} for {atm}.")
 
     results_df = pl.DataFrame(results)
-    results_df.write_parquet("counts.parquet")
+    results_df.write_parquet("count_atms.parquet")
 
 
 def add_areas(df: pl.DataFrame) -> pl.DataFrame:
@@ -364,31 +446,6 @@ def refine_area(df: pl.DataFrame):
     return df.filter(pl.col("province") != "SONG THAN")
 
 
-def test():
-    df = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx").select(
-        pl.col("TYPE", "ATM_ID", "LATITUDE", "LONGITUDE", "CITY")
-    )
-    # df = atm_excel_preprocess(table=df)
-
-    # invalid_df = df.filter(
-    #     ~pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
-    #     ~pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
-    # )
-    # pprint(invalid_df.select("LATITUDE", "LONGITUDE").to_dicts())
-    valid_df = df.filter(
-        pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
-        pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
-    )
-
-    atms = valid_df.to_dicts()
-
-    for atm in tqdm(atms[:]):
-        # try:
-        center = Point(latitude=atm["LATITUDE"], longitude=atm["LONGITUDE"])
-        # except:
-        # print(f"Failed {atm}")
-
-
 def main():
     # COVER = Path("./queries/nghe_an.geojson")
     # FACTOR = factor(
@@ -401,12 +458,16 @@ def main():
     # summary()
     # final_result()
 
-    post_process_atm3()
-    df = pl.read_parquet("./counts.parquet")
-    print(df)
-    result = add_areas(df).drop("latitude", "longitude").rename({"area": "province"})
-    print(result)
-    result.write_parquet("./atm_pois_summary.parquet")
+    # for ATM
+    # post_process_atm()
+    # df = pl.read_parquet("./counts.parquet")
+    # print(df)
+    # result = add_areas(df).drop("latitude", "longitude").rename({"area": "province"})
+    # print(result)
+    # result.write_parquet("./atm_pois_summary.parquet")
+
+    # for PGD
+    post_process_pgd()
 
 
 if __name__ == "__main__":
