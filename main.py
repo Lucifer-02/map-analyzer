@@ -75,13 +75,16 @@ def test_area_crawl(
         if len(points) == 0:
             continue
 
-        viz.map_points(points)
+        # viz.map_points(points)
 
         for i, point in enumerate(points):
             logging.info(
                 f"Crawling {i + 1}/{len(points)} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
             )
-            save_path = Path(f"./datasets/raw/oss/{cover.stem}_{pyly_idx}_{i}.parquet")
+            # save_path = Path(f"./datasets/raw/oss/{cover.stem}_{pyly_idx}_{i}.parquet")
+            save_path = Path(
+                f"../{cover.stem}_{pyly_idx}_{i}.parquet"
+            )
             if not save_path.exists():
                 try:
                     pois = crawler.crawl(
