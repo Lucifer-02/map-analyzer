@@ -1,15 +1,14 @@
-from subprocess import call
-from pathlib import Path
 import logging
-from datetime import datetime
-from typing import List, Set
-import time
-import platform
 import os
+import platform
+import time
+from datetime import datetime
+from pathlib import Path
+from subprocess import call
+from typing import List, Set
 
-
-from geopy import Point
 import polars as pl
+from geopy import Point
 
 from .process import prepare
 
@@ -47,13 +46,16 @@ def crawl(
     OS = platform.system()
 
     if OS == "Windows":
-        exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-windows-amd64.exe"
+        # exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-windows-amd64.exe"
+        exe = f"{Path(__file__).parent}/google_maps_scraper-1.8.5-windows-amd64.exe"
 
     if OS == "Linux":
-        exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-linux-amd64"
+        # exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-linux-amd64"
+        exe = f"{Path(__file__).parent}/google_maps_scraper-1.8.5-linux-amd64"
 
     if OS == "Darwin":
-        exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-darwin-amd64"
+        # exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-darwin-amd64"
+        exe = f"{Path(__file__).parent}/google_maps_scraper-1.8.5-darwin-amd64"
 
     start = time.time()
     # use the crawling tool
@@ -94,7 +96,7 @@ def crawl(
 def crawl_in_area(points: List[Point], keywords: Set[str]) -> pl.DataFrame:
     df = pl.DataFrame()
     for i, point in enumerate(points):
-        logging.info(f"Processing point {i+1}/{len(points)}")
+        logging.info(f"Processing point {i + 1}/{len(points)}")
 
         try:
             result = crawl(

@@ -453,7 +453,7 @@ def main():
     # )
     # logging.info(f"factor for sample point: {FACTOR}")
     # test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2500, ncores=4)
-    # cli()
+    cli()
 
     # summary()
     # final_result()
@@ -467,7 +467,7 @@ def main():
     # result.write_parquet("./atm_pois_summary.parquet")
 
     # for PGD
-    post_process_pgd()
+    # post_process_pgd()
 
 
 if __name__ == "__main__":
