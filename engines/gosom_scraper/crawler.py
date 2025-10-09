@@ -23,7 +23,7 @@ def crawl(
     center: Point,
     radius: float = 10000,
     zoom: int = 18,
-    timeout: float = 0.5,
+    timeout: str = "10s",
     depth: int = 2,
     ncores: int = 8,
 ) -> pl.DataFrame:
@@ -72,7 +72,7 @@ def crawl(
             "-zoom",
             str(zoom),
             "-exit-on-inactivity",
-            str(timeout) + "m",
+            timeout,
             "-depth",
             str(depth),
             "-c",
