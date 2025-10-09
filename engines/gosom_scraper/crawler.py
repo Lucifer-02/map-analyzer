@@ -46,17 +46,18 @@ def crawl(
     OS = platform.system()
 
     if OS == "Windows":
-        # exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-windows-amd64.exe"
-        exe = f"{Path(__file__).parent}/google_maps_scraper-1.8.5-windows-amd64.exe"
+        exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-windows-amd64.exe"
+        # exe = f"{Path(__file__).parent}/google_maps_scraper-1.8.5-windows-amd64.exe"
 
     if OS == "Linux":
-        # exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-linux-amd64"
-        exe = f"{Path(__file__).parent}/google_maps_scraper-1.8.5-linux-amd64"
+        exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-linux-amd64"
+        # exe = f"{Path(__file__).parent}/google_maps_scraper-1.8.5-linux-amd64"
 
     if OS == "Darwin":
-        # exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-darwin-amd64"
-        exe = f"{Path(__file__).parent}/google_maps_scraper-1.8.5-darwin-amd64"
+        exe = f"{Path(__file__).parent}/google_maps_scraper-1.7.10-darwin-amd64"
+        # exe = f"{Path(__file__).parent}/google_maps_scraper-1.8.5-darwin-amd64"
 
+    logging.info("Start crawling...")
     start = time.time()
     # use the crawling tool
     call(
@@ -82,6 +83,7 @@ def crawl(
         ]
     )
     end = time.time()
+    logging.info("Done crawling.")
 
     df = prepare(output_path)
     logging.info(f"Collected {len(df)} places in {end - start} seconds.")
