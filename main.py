@@ -67,7 +67,7 @@ def test_area_crawl(
 
     # print(polys)
 
-    for pyly_idx, poly in enumerate(polys):
+    for poly_idx, poly in enumerate(polys):
         points = utils.find_points_in_polygon(
             polygon=poly, distance_points_ms=DISTANCE_POINTS_MS
         )
@@ -81,9 +81,9 @@ def test_area_crawl(
             logging.info(
                 f"Crawling {i + 1}/{len(points)} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
             )
-            # save_path = Path(f"./datasets/raw/oss/{cover.stem}_{pyly_idx}_{i}.parquet")
+            # save_path = Path(f"./datasets/raw/oss/{cover.stem}_{poly_idx}_{i}.parquet")
             save_path = Path(
-                f"../{cover.stem}_{pyly_idx}_{i}.parquet"
+                f"../{cover.stem}_{poly_idx}_{i}.parquet"
             )
             if not save_path.exists():
                 try:
@@ -93,6 +93,7 @@ def test_area_crawl(
                         ncores=ncores,
                         radius=radius,
                     )
+                    logging.info("Done crawling, starting preprocess...")
                     result = utils.filter_within_polygon1(df=pois, poly=poly)
                     logging.info(f"Result after filted all outside the area: {result}")
                     result.write_parquet(save_path)
