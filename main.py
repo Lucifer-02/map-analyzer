@@ -11,7 +11,7 @@ from geopy.point import Point
 from tqdm import tqdm
 
 from engines.gosom_scraper import crawler
-from mylib import ALL_TYPES, AREAS, POI_GROUPS, utils, viz
+from mylib import ALL_TYPES, AREAS, POI_GROUPS, utils
 from mylib.population import _get_pop, pop_in_radius
 
 
@@ -82,9 +82,7 @@ def test_area_crawl(
                 f"Crawling {i + 1}/{len(points)} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
             )
             # save_path = Path(f"./datasets/raw/oss/{cover.stem}_{poly_idx}_{i}.parquet")
-            save_path = Path(
-                f"../{cover.stem}_{poly_idx}_{i}.parquet"
-            )
+            save_path = Path(f"../{cover.stem}_{poly_idx}_{i}.parquet")
             if not save_path.exists():
                 try:
                     pois = crawler.crawl(
