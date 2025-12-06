@@ -1,7 +1,7 @@
 run:
 	clear
-	uv run ./main.py ./queries/with_ocean/lang_son.geojson --ncores 8
-	# uv run main.py
+	# uv run ./main.py ./queries/with_ocean/lang_son.geojson --ncores 8
+	uv run main.py
 	# python3 eda.py
 	# uv run test.py
 

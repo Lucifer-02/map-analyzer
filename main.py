@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from datetime import datetime
@@ -11,6 +12,7 @@ from geopy.point import Point
 from tqdm import tqdm
 
 from engines.gosom_scraper import crawler
+from engines.map_miner.scraper import scrape_google_maps
 from mylib import ALL_TYPES, AREAS, POI_GROUPS, utils
 from mylib.population import _get_pop, pop_in_radius
 
@@ -46,6 +48,76 @@ def test_population():
         total_population = _get_pop(src=src, aoi=cover_area)
 
     print(f"Total population within the area of interest: {total_population}")
+
+
+def test_area_crawl2(
+    cover: Path,
+    factor: float = 1,
+    base_distance_points_ms: float = 2500,
+):
+    logging.getLogger("main.scraper").setLevel(logging.INFO)
+    logging.info("Start crawl...")
+    # --------setup--------------
+    with open(cover, "r", encoding="utf8") as f:
+        data = json.load(f)
+    polys = utils.geojson_to_polygons(data)
+    assert len(polys) >= 1
+
+    logging.info(f"Found {len(polys)} polygons.")
+    DISTANCE_POINTS_MS = base_distance_points_ms * factor
+
+    # print(polys)
+
+    for poly_idx, poly in enumerate(polys):
+        points = utils.find_points_in_polygon(
+            polygon=poly, distance_points_ms=DISTANCE_POINTS_MS
+        )
+
+        if len(points) == 0:
+            continue
+
+        # viz.map_points(points)
+
+        for i, point in enumerate(points):
+            logging.info(
+                f"Crawling {i + 1}/{len(points)} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
+            )
+            # save_path = Path(f"./datasets/raw/oss/{cover.stem}_{poly_idx}_{i}.parquet")
+            save_path = Path(f"../{cover.stem}_{poly_idx}_{i}.parquet")
+            if not save_path.exists():
+                try:
+                    logging.getLogger("main.scraper").setLevel(logging.INFO)
+                    pois = asyncio.run(
+                        scrape_google_maps(
+                            queries=ALL_TYPES,
+                            max_places=120,
+                            lang="en",
+                            headless=True,
+                            geo_coordinates=point,
+                            zoom=18,
+                            # proxy={
+                            #     "server": "http://103.162.31.234:49060",
+                            #     "username": "user49060",
+                            #     "password": "zDBKBdlIO4",
+                            # },
+                            # proxy={
+                            #     "server": "http://154.202.3.40:49230",
+                            #     "username": "user49230",
+                            #     "password": "GQJ62IBqX2",
+                            # },
+                            # proxy={"server": "socks5://127.0.0.1:9050"},
+                            proxy=None,
+                            n_semaphore=10,
+                        )
+                    )
+                    logging.info("Done crawling, starting preprocess...")
+                    result = utils.filter_within_polygon1(df=pois, poly=poly)
+                    logging.info(f"Result after filted all outside the area: {result}")
+                    result.write_parquet(save_path)
+                except Exception as e:
+                    logging.error(f"Error for point {point}: {e}, skipping...")
+            else:
+                logging.info(f"The dataset {save_path} already exists, skipping...")
 
 
 def test_area_crawl(
@@ -449,13 +521,13 @@ def refine_area(df: pl.DataFrame):
 
 
 def main():
-    # COVER = Path("./queries/nghe_an.geojson")
-    # FACTOR = factor(
-    #     densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
-    # )
-    # logging.info(f"factor for sample point: {FACTOR}")
-    # test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=2500, ncores=4)
-    cli()
+    COVER = Path("./queries/with_ocean/ha_noi.geojson")
+    FACTOR = factor(
+        densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
+    )
+    logging.info(f"factor for sample point: {FACTOR}")
+    test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=4000)
+    # cli()
 
     # summary()
     # final_result()

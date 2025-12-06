@@ -204,3 +204,4 @@ output*.csv
 !checklist.csv
 archives/*
 queries/temp/*
+*.png
