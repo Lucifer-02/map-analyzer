@@ -107,7 +107,7 @@ def test_area_crawl2(
                             # },
                             # proxy={"server": "socks5://127.0.0.1:9050"},
                             proxy=None,
-                            n_semaphore=10,
+                            n_semaphore=16,
                         )
                     )
                     logging.info("Done crawling, starting preprocess...")
