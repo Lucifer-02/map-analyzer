@@ -153,9 +153,9 @@ def polygon_to_points(polygon: Polygon) -> List[Point]:
 
 
 def geojson_to_polygon(data: Dict) -> Polygon:
-    assert all(
-        item in data.keys() for item in ["features", "type"]
-    ), "check valid geojson input"
+    assert all(item in data.keys() for item in ["features", "type"]), (
+        "check valid geojson input"
+    )
     assert geojson.FeatureCollection(data).is_valid
 
     if data.get("type") != "FeatureCollection":
@@ -192,7 +192,6 @@ def geojson_to_polygons(data: Dict) -> List[Polygon]:
     polygons = []
 
     match data.get("type"):
-
         case "Polygon":
             polygon_coords = data.get("coordinates", [])
 
@@ -213,7 +212,6 @@ def geojson_to_polygons(data: Dict) -> List[Polygon]:
                 polygons.append(poly)
 
         case "FeatureCollection":
-
             features = data.get("features", [])
             assert len(features) == 1, "currently support parse only one feature"
 

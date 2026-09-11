@@ -520,13 +520,65 @@ def refine_area(df: pl.DataFrame):
     return df.filter(pl.col("province") != "SONG THAN")
 
 
-def main():
-    COVER = Path("./queries/with_ocean/ha_noi.geojson")
-    FACTOR = factor(
-        densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
+def post_process_points(points: list[Point], output="points.xlsx"):
+    POPULATION_DATASET = Path(
+        "./datasets/population/vnm_pop_2024_CN_100m_R2024B_v1.tif"
     )
-    logging.info(f"factor for sample point: {FACTOR}")
-    test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=4000)
+    pois = pl.read_parquet("../map_data/vietnam.parquet").rename({"title": "name"})
+
+    results = []
+
+    with rasterio.open(POPULATION_DATASET) as src:
+        for point in points:
+            try:
+                center = point
+
+                pois_in_radius = utils.filter_within_radius(
+                    df=pois,
+                    lat_col="latitude",
+                    lon_col="longitude",
+                    radius_m=1000,
+                    center=center,
+                )
+
+                pgds = filter_pgd(pois_in_radius)
+                vcb_pgds = filter_vcb(pgds)
+
+                results.append(
+                    {
+                        "poi_transport_radius1": pois_in_radius[
+                            "is_poi_transport"
+                        ].sum(),
+                        "poi_ecom_radius1": pois_in_radius["is_poi_ecom"].sum(),
+                        "poi_pop_radius1": pois_in_radius["is_poi_popu"].sum(),
+                        "pgd_vcb_radius1": len(vcb_pgds),
+                        "pgd_competitor_radius1": len(pgds) - len(vcb_pgds),
+                        "population_radius1": pop_in_radius(
+                            center=center,
+                            radius_meters=1000,
+                            dataset=src,
+                        ),
+                        "latitude": center.latitude,
+                        "longitude": center.longitude,
+                        "created_dated": datetime.now(),
+                    }
+                )
+
+            except Exception as e:
+                logging.error(f"Failed for {point}: {e}")
+
+    df = pl.DataFrame(results)
+    df.write_excel(output)
+    return df
+
+
+def main():
+    # COVER = Path("./queries/with_ocean/ha_noi.geojson")
+    # FACTOR = factor(
+    #     densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
+    # )
+    # logging.info(f"factor for sample point: {FACTOR}")
+    # test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=4000)
     # cli()
 
     # summary()
@@ -534,6 +586,15 @@ def main():
 
     # for ATM
     # post_process_atm()
+    # post_process_test()
+
+    points = [
+        Point(10.798535355587667, 106.67002680912249),
+        Point(10.796825128491399, 106.66487038098914),
+    ]
+
+    df = post_process_points(points, "pois.xlsx")
+    print(df)
     # df = pl.read_parquet("./counts.parquet")
     # print(df)
     # result = add_areas(df).drop("latitude", "longitude").rename({"area": "province"})

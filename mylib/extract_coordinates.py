@@ -27,9 +27,9 @@ def get_coordinates(query: str) -> str:
     match = pattern.search(response.text)
 
     assert match is not None
-    assert (
-        len(match.groups()) == 1
-    ), "the query should only return 1 match because it is an address"
+    assert len(match.groups()) == 1, (
+        "the query should only return 1 match because it is an address"
+    )
 
     return match.group()
 
@@ -57,9 +57,9 @@ def get_coordinates_playwright(query: str) -> str:
     match = pattern.search(new_url)
 
     assert match is not None
-    assert (
-        len(match.groups()) == 0
-    ), "the query should only return 1 match because it is an address"
+    assert len(match.groups()) == 0, (
+        "the query should only return 1 match because it is an address"
+    )
 
     return match.group().replace("@", "")
 
