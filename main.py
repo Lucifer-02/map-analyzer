@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import click
@@ -9,10 +9,12 @@ import geopandas as gpd
 import polars as pl
 import rasterio
 from geopy.point import Point
+from map_miner import scrape_google_maps
 from tqdm import tqdm
 
 from engines.gosom_scraper import crawler
-from engines.map_miner.scraper import scrape_google_maps
+
+# from engines.map_miner.scraper import scrape_google_maps
 from mylib import ALL_TYPES, AREAS, POI_GROUPS, utils
 from mylib.population import _get_pop, pop_in_radius
 
@@ -56,14 +58,14 @@ def test_area_crawl2(
     base_distance_points_ms: float = 2500,
 ):
     logging.getLogger("main.scraper").setLevel(logging.INFO)
-    logging.info("Start crawl...")
+    logger.info("Start crawl...")
     # --------setup--------------
     with open(cover, "r", encoding="utf8") as f:
         data = json.load(f)
     polys = utils.geojson_to_polygons(data)
     assert len(polys) >= 1
 
-    logging.info(f"Found {len(polys)} polygons.")
+    logger.info(f"Found {len(polys)} polygons.")
     DISTANCE_POINTS_MS = base_distance_points_ms * factor
 
     # print(polys)
@@ -79,45 +81,40 @@ def test_area_crawl2(
         # viz.map_points(points)
 
         for i, point in enumerate(points):
-            logging.info(
+            logger.info(
                 f"Crawling {i + 1}/{len(points)} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
             )
-            # save_path = Path(f"./datasets/raw/oss/{cover.stem}_{poly_idx}_{i}.parquet")
-            save_path = Path(f"../{cover.stem}_{poly_idx}_{i}.parquet")
+            save_path = Path(f"./datasets/raw/oss/{cover.stem}_{poly_idx}_{i}.parquet")
+            # save_path = Path(f"../{cover.stem}_{poly_idx}_{i}.parquet")
             if not save_path.exists():
                 try:
                     logging.getLogger("main.scraper").setLevel(logging.INFO)
                     pois = asyncio.run(
                         scrape_google_maps(
                             queries=ALL_TYPES,
-                            max_places=120,
+                            max_places=60,
                             lang="en",
                             headless=True,
                             geo_coordinates=point,
                             zoom=18,
                             # proxy={
-                            #     "server": "http://103.162.31.234:49060",
-                            #     "username": "user49060",
-                            #     "password": "zDBKBdlIO4",
+                            #     "server": "http://gate.decodo.com:10000",
+                            #     "username": "spp86iv7zu",
+                            #     "password": "6yoqpXiuaF5bT_83sV",
+                            #     "bypass": DEFAULT_PROXY_BYPASS,
                             # },
-                            # proxy={
-                            #     "server": "http://154.202.3.40:49230",
-                            #     "username": "user49230",
-                            #     "password": "GQJ62IBqX2",
-                            # },
-                            # proxy={"server": "socks5://127.0.0.1:9050"},
-                            proxy=None,
-                            n_semaphore=16,
+                            n_semaphore=12,
                         )
                     )
-                    logging.info("Done crawling, starting preprocess...")
+                    logger.info("Done crawling, starting preprocess...")
+                    print(f"pois: {pois}")
                     result = utils.filter_within_polygon1(df=pois, poly=poly)
-                    logging.info(f"Result after filted all outside the area: {result}")
+                    logger.info(f"Result after filted all outside the area: {result}")
                     result.write_parquet(save_path)
                 except Exception as e:
-                    logging.error(f"Error for point {point}: {e}, skipping...")
+                    logger.error(f"Error for point {point}: {e}, skipping...")
             else:
-                logging.info(f"The dataset {save_path} already exists, skipping...")
+                logger.info(f"The dataset {save_path} already exists, skipping...")
 
 
 def test_area_crawl(
@@ -127,14 +124,14 @@ def test_area_crawl(
     base_distance_points_ms: float = 2500,
     ncores: int = 4,
 ):
-    logging.info("Start crawl...")
+    logger.info("Start crawl...")
     # --------setup--------------
     with open(cover, "r", encoding="utf8") as f:
         data = json.load(f)
     polys = utils.geojson_to_polygons(data)
     assert len(polys) >= 1
 
-    logging.info(f"Found {len(polys)} polygons.")
+    logger.info(f"Found {len(polys)} polygons.")
     DISTANCE_POINTS_MS = base_distance_points_ms * factor
 
     # print(polys)
@@ -150,7 +147,7 @@ def test_area_crawl(
         # viz.map_points(points)
 
         for i, point in enumerate(points):
-            logging.info(
+            logger.info(
                 f"Crawling {i + 1}/{len(points)} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
             )
             # save_path = Path(f"./datasets/raw/oss/{cover.stem}_{poly_idx}_{i}.parquet")
@@ -163,14 +160,14 @@ def test_area_crawl(
                         ncores=ncores,
                         radius=radius,
                     )
-                    logging.info("Done crawling, starting preprocess...")
+                    logger.info("Done crawling, starting preprocess...")
                     result = utils.filter_within_polygon1(df=pois, poly=poly)
-                    logging.info(f"Result after filted all outside the area: {result}")
+                    logger.info(f"Result after filted all outside the area: {result}")
                     result.write_parquet(save_path)
                 except Exception as e:
-                    logging.error(f"Error for point {point}: {e}, skipping...")
+                    logger.error(f"Error for point {point}: {e}, skipping...")
             else:
-                logging.info(f"The dataset {save_path} already exists, skipping...")
+                logger.info(f"The dataset {save_path} already exists, skipping...")
 
 
 # according pop density of Tong cuc thong ke
@@ -224,8 +221,8 @@ def summary():
             ).cast(pl.Int64)
         )
         .with_columns([pl.arange(0, df.height).alias("id")])
-        .with_columns(pl.lit(datetime.now()).alias("created_date"))
-        .with_columns(pl.lit(datetime.now()).alias("updated_date"))
+        .with_columns(pl.lit(datetime.now(UTC)).alias("created_date"))
+        .with_columns(pl.lit(datetime.now(UTC)).alias("updated_date"))
     )
 
     new_df.write_parquet("./datasets/results/vietnam.parquet")
@@ -257,7 +254,7 @@ def cli(area, ncores, base_distance_points_ms, radius):
         densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
     )
 
-    logging.info(
+    logger.info(
         f"factor for sample point: {FACTOR}, radius: {radius}, base_distance_points_ms: {base_distance_points_ms}."
     )
     test_area_crawl(
@@ -362,7 +359,7 @@ def post_process_pgd():
                     "poi_pop_radius1": poi_pop_radius1,
                     "pgd_vcb_radius1": pgd_vcb_radius1,
                     "pgd_competitor_radius1": pgd_competitor_radius1,
-                    "created_dated": datetime.now(),
+                    "created_dated": datetime.now(UTC),
                     "pgd_id": pgd["DVGS"],
                     # "province": atm["CITY"],
                     "latitude": pgd["NewLatitude"],
@@ -379,7 +376,7 @@ def post_process_pgd():
             results.append(result)
 
         except Exception as e:
-            logging.error(f"Failed: {e} for {pgd}.")
+            logger.error(f"Failed: {e} for {pgd}.")
 
     results_df = pl.DataFrame(results)
     print(results_df)
@@ -429,7 +426,7 @@ def post_process_atm():
                     "poi_pop_radius1": poi_pop_radius1,
                     "atm_vcb_radius1": atm_vcb_radius1,
                     "atm_competitor_radius1": atm_competitor_radius1,
-                    "created_dated": datetime.now(),
+                    "created_dated": datetime.now(UTC),
                     "amt_id": atm["ATM_ID"],
                     # "province": atm["CITY"],
                     "latitude": atm["LATITUDE"],
@@ -445,7 +442,7 @@ def post_process_atm():
             results.append(result)
 
         except Exception as e:
-            logging.error(f"Failed: {e} for {atm}.")
+            logger.error(f"Failed: {e} for {atm}.")
 
     results_df = pl.DataFrame(results)
     results_df.write_parquet("count_atms.parquet")
@@ -560,12 +557,12 @@ def post_process_points(points: list[Point], output="points.xlsx"):
                         ),
                         "latitude": center.latitude,
                         "longitude": center.longitude,
-                        "created_dated": datetime.now(),
+                        "created_dated": datetime.now(UTC),
                     }
                 )
 
             except Exception as e:
-                logging.error(f"Failed for {point}: {e}")
+                logger.error(f"Failed for {point}: {e}")
 
     df = pl.DataFrame(results)
     df.write_excel(output)
@@ -573,12 +570,12 @@ def post_process_points(points: list[Point], output="points.xlsx"):
 
 
 def main():
-    # COVER = Path("./queries/with_ocean/ha_noi.geojson")
-    # FACTOR = factor(
-    #     densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
-    # )
-    # logging.info(f"factor for sample point: {FACTOR}")
-    # test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=4000)
+    COVER = Path("./queries/with_ocean/ha_noi.geojson")
+    FACTOR = factor(
+        densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
+    )
+    logger.info(f"factor for sample point: {FACTOR}")
+    test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=5000)
     # cli()
 
     # summary()
@@ -588,13 +585,13 @@ def main():
     # post_process_atm()
     # post_process_test()
 
-    points = [
-        Point(10.798535355587667, 106.67002680912249),
-        Point(10.796825128491399, 106.66487038098914),
-    ]
-
-    df = post_process_points(points, "pois.xlsx")
-    print(df)
+    # points = [
+    #     Point(10.798535355587667, 106.67002680912249),
+    #     Point(10.796825128491399, 106.66487038098914),
+    # ]
+    #
+    # df = post_process_points(points, "pois.xlsx")
+    # print(df)
     # df = pl.read_parquet("./counts.parquet")
     # print(df)
     # result = add_areas(df).drop("latitude", "longitude").rename({"area": "province"})
@@ -606,6 +603,7 @@ def main():
 
 
 if __name__ == "__main__":
+    logger = logging.getLogger(__name__)
     logging.basicConfig(
         filename=Path("crawling.log"),
         level=logging.INFO,

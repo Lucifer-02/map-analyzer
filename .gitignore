@@ -205,3 +205,4 @@ output*.csv
 archives/*
 queries/temp/*
 *.png
+*.whl

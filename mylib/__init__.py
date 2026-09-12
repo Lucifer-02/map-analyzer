@@ -33,7 +33,6 @@ POI_GROUPS = {
         "movie_theater",
         "shopping_mall",
         "supermarket",
-        "shopping_mall",
         "pharmacy",
         "book_store",
         "store",
@@ -41,7 +40,6 @@ POI_GROUPS = {
         "convenience_store",
         "gas_station",
         "lodging",
-        "convenience_store",
     },
     "group3": {
         "school",
