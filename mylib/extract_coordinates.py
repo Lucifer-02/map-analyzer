@@ -1,12 +1,12 @@
 # this script ONLY for extracting coordinates from given poi original excel file
 
-import requests
 import re
-from urllib import parse
-from time import sleep
 from random import randint
+from time import sleep
+from urllib import parse
 
 import polars as pl
+import requests
 from playwright.sync_api import sync_playwright
 
 
@@ -46,7 +46,7 @@ def get_coordinates_playwright(query: str) -> str:
         page.goto(url)
         initial_url = page.url
 
-        page.wait_for_function("window.location.href !== '{}'".format(initial_url))
+        page.wait_for_function(f"window.location.href !== '{initial_url}'")
 
         new_url = page.url
 
@@ -77,7 +77,7 @@ def get_search_link(query: str) -> str:
         page.goto(url)
         initial_url = page.url
 
-        page.wait_for_function("window.location.href !== '{}'".format(initial_url))
+        page.wait_for_function(f"window.location.href !== '{initial_url}'")
 
         new_url = page.url
 

@@ -1,16 +1,18 @@
 import json
+import logging
 from pathlib import Path
-from typing import List, Dict
 
-from geopy.point import Point
-from geopy.distance import Distance, geodesic
-import geopy.distance
-import shapely
-import geopy
-from shapely.geometry import Polygon
 import geopandas as gpd
-import polars as pl
+import geopy
+import geopy.distance
 import numpy as np
+import polars as pl
+import shapely
+from geopy.distance import Distance, geodesic
+from geopy.point import Point
+from shapely.geometry import Polygon
+
+logger = logging.getLogger(__name__)
 
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -147,13 +149,13 @@ def add_area_col(
     ).with_columns(pl.lit(name).alias("area"))
 
 
-def polygon_to_points(polygon: Polygon) -> List[Point]:
+def polygon_to_points(polygon: Polygon) -> list[Point]:
     # Convert the polygon vertices to geopy Point objects
     return [Point(lat, lon) for lon, lat in polygon.exterior.coords]
 
 
-def geojson_to_polygon(data: Dict) -> Polygon:
-    assert all(item in data.keys() for item in ["features", "type"]), (
+def geojson_to_polygon(data: dict) -> Polygon:
+    assert all(item in data for item in ["features", "type"]), (
         "check valid geojson input"
     )
     assert geojson.FeatureCollection(data).is_valid
@@ -186,7 +188,7 @@ import geojson
 
 
 # This is a trick because geojson only contain feature
-def geojson_to_polygons(data: Dict) -> List[Polygon]:
+def geojson_to_polygons(data: dict) -> list[Polygon]:
     assert geojson.GeoJSON(data).is_valid
 
     polygons = []
@@ -262,15 +264,15 @@ def extract_coordinates(table: pl.DataFrame, link_col: str) -> pl.DataFrame:
     )
 
 
-def points_to_polygon(corners: List[Point]) -> Polygon:
+def points_to_polygon(corners: list[Point]) -> Polygon:
     return shapely.geometry.Polygon(
         [(corner.longitude, corner.latitude) for corner in corners]
     )
 
 
 def find_points_in_polygons(
-    polygons: List[Polygon], distance_points_ms: float, is_include_corners: bool = False
-) -> List[Point]:
+    polygons: list[Polygon], distance_points_ms: float, is_include_corners: bool = False
+) -> list[Point]:
 
     result = []
 
@@ -288,7 +290,7 @@ def find_points_in_polygons(
 # input is a list of corners of a polygon and distance of each other points, find the points inside the polygon by calculating evenly spaced points inside the rectangle that contains the polygon and check if the point is inside the polygon
 def find_points_in_polygon(
     polygon: Polygon, distance_points_ms: float, is_include_corners: bool = False
-) -> List[Point]:
+) -> list[Point]:
 
     # calculate the bounding box of the polygon
     min_lon, min_lat, max_lon, max_lat = polygon.bounds
@@ -402,7 +404,7 @@ def test_circle():
     plt.show()
 
 
-def city_mapping() -> Dict[str, str]:
+def city_mapping() -> dict[str, str]:
     # IO
     with open(f"{Path(__file__).parent}/geo_map.json", "r", encoding="utf-8") as file:
         data = json.load(file)  # Load JSON data as a Python dictionary or list

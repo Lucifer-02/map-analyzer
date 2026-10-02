@@ -1,15 +1,13 @@
 from pathlib import Path
-from typing import List
-
-import matplotlib.pyplot as plt
 
 import folium
 import geopandas as gpd
+import matplotlib.pyplot as plt
 from geopy.point import Point
 from shapely.geometry import Polygon
 
 
-def map_points(points: List[Point]):
+def map_points(points: list[Point]):
 
     m = folium.Map(location=[points[0].latitude, points[0].longitude], zoom_start=15)
 
@@ -28,7 +26,7 @@ def polygon(polygon: Polygon):
     plt.show()
 
 
-def plot_points(points: List[Point]):
+def plot_points(points: list[Point]):
 
     plt.plot(
         [point.longitude for point in points],

@@ -1,11 +1,9 @@
-from os.path import join
-from pathlib import Path
 import logging
+from pathlib import Path
 
-import polars as pl
 import pandas as pd
+import polars as pl
 from geopy.point import Point
-
 from utils import distance
 
 

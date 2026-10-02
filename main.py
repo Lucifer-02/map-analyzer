@@ -1,3 +1,5 @@
+#! uv run
+
 import asyncio
 import json
 import logging
@@ -12,11 +14,9 @@ from geopy.point import Point
 from map_miner import scrape_google_maps
 from tqdm import tqdm
 
-from engines.gosom_scraper import crawler
-
-# from engines.map_miner.scraper import scrape_google_maps
 from mylib import ALL_TYPES, AREAS, POI_GROUPS, utils
 from mylib.population import _get_pop, pop_in_radius
+from mylib.utils import point_to_string
 
 
 def test_population():
@@ -56,8 +56,8 @@ def test_area_crawl2(
     cover: Path,
     factor: float = 1,
     base_distance_points_ms: float = 2500,
+    output_dir: Path = Path("./datasets/raw/oss/"),
 ):
-    logging.getLogger("main.scraper").setLevel(logging.INFO)
     logger.info("Start crawl...")
     # --------setup--------------
     with open(cover, "r", encoding="utf8") as f:
@@ -82,85 +82,31 @@ def test_area_crawl2(
 
         for i, point in enumerate(points):
             logger.info(
-                f"Crawling {i + 1}/{len(points)} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
+                f"Crawling {i + 1}/{len(points)} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}, at {point_to_string(point)}..."
             )
-            save_path = Path(f"./datasets/raw/oss/{cover.stem}_{poly_idx}_{i}.parquet")
-            # save_path = Path(f"../{cover.stem}_{poly_idx}_{i}.parquet")
+            save_path = output_dir / Path(f"{cover.stem}_{poly_idx}_{i}.parquet")
             if not save_path.exists():
                 try:
                     logging.getLogger("main.scraper").setLevel(logging.INFO)
                     pois = asyncio.run(
                         scrape_google_maps(
                             queries=ALL_TYPES,
-                            max_places=60,
+                            max_places=50,
                             lang="en",
-                            headless=True,
                             geo_coordinates=point,
                             zoom=18,
+                            # headless=False,
                             # proxy={
-                            #     "server": "http://gate.decodo.com:10000",
-                            #     "username": "spp86iv7zu",
-                            #     "password": "6yoqpXiuaF5bT_83sV",
+                            #     # "server": "http://gate.decodo.com:10000",
+                            #     # "username": "spp86iv7zu",
+                            #     # "password": "6yoqpXiuaF5bT_83sV",
+                            #     "server": "socks5://127.0.0.1:9050",
                             #     "bypass": DEFAULT_PROXY_BYPASS,
                             # },
-                            n_semaphore=12,
                         )
                     )
                     logger.info("Done crawling, starting preprocess...")
                     print(f"pois: {pois}")
-                    result = utils.filter_within_polygon1(df=pois, poly=poly)
-                    logger.info(f"Result after filted all outside the area: {result}")
-                    result.write_parquet(save_path)
-                except Exception as e:
-                    logger.error(f"Error for point {point}: {e}, skipping...")
-            else:
-                logger.info(f"The dataset {save_path} already exists, skipping...")
-
-
-def test_area_crawl(
-    cover: Path,
-    radius: float = 2000,
-    factor: float = 1,
-    base_distance_points_ms: float = 2500,
-    ncores: int = 4,
-):
-    logger.info("Start crawl...")
-    # --------setup--------------
-    with open(cover, "r", encoding="utf8") as f:
-        data = json.load(f)
-    polys = utils.geojson_to_polygons(data)
-    assert len(polys) >= 1
-
-    logger.info(f"Found {len(polys)} polygons.")
-    DISTANCE_POINTS_MS = base_distance_points_ms * factor
-
-    # print(polys)
-
-    for poly_idx, poly in enumerate(polys):
-        points = utils.find_points_in_polygon(
-            polygon=poly, distance_points_ms=DISTANCE_POINTS_MS
-        )
-
-        if len(points) == 0:
-            continue
-
-        # viz.map_points(points)
-
-        for i, point in enumerate(points):
-            logger.info(
-                f"Crawling {i + 1}/{len(points)} with distane of sample points is {DISTANCE_POINTS_MS} meters from area {cover}..."
-            )
-            # save_path = Path(f"./datasets/raw/oss/{cover.stem}_{poly_idx}_{i}.parquet")
-            save_path = Path(f"../{cover.stem}_{poly_idx}_{i}.parquet")
-            if not save_path.exists():
-                try:
-                    pois = crawler.crawl(
-                        center=point,
-                        keywords=ALL_TYPES,
-                        ncores=ncores,
-                        radius=radius,
-                    )
-                    logger.info("Done crawling, starting preprocess...")
                     result = utils.filter_within_polygon1(df=pois, poly=poly)
                     logger.info(f"Result after filted all outside the area: {result}")
                     result.write_parquet(save_path)
@@ -228,17 +174,6 @@ def summary():
     new_df.write_parquet("./datasets/results/vietnam.parquet")
 
 
-def final_result():
-    df = pl.read_parquet("./datasets/results/vietnam.parquet")
-    result = (
-        df.drop("query", "link", "categories", "complete_address")
-        .rename({"title": "name"})
-        .unique()
-    )
-    print(result)
-    result.write_parquet("./vietnam_pois.parquet")
-
-
 @click.command()
 @click.argument("area")
 @click.option("--ncores", default=2, help="number of cores to use")
@@ -248,7 +183,7 @@ def final_result():
     help="base distance(meter) between sample points",
 )
 @click.option("--radius", default=5000, help="radius to filter around a point")
-def cli(area, ncores, base_distance_points_ms, radius):
+def cli(area, base_distance_points_ms, radius):
     COVER = Path(area)
     FACTOR = factor(
         densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
@@ -257,18 +192,10 @@ def cli(area, ncores, base_distance_points_ms, radius):
     logger.info(
         f"factor for sample point: {FACTOR}, radius: {radius}, base_distance_points_ms: {base_distance_points_ms}."
     )
-    test_area_crawl(
+    test_area_crawl2(
         cover=COVER,
         factor=FACTOR,
         base_distance_points_ms=base_distance_points_ms,
-        ncores=ncores,
-        radius=radius,
-    )
-
-
-def filter_vcb_atm(pois: pl.DataFrame) -> pl.DataFrame:
-    return pois.filter(pl.col("is_ATM").eq(1)).filter(
-        pl.col("name").str.to_lowercase().str.contains("(vcb)|(vietcombank)")
     )
 
 
@@ -285,38 +212,12 @@ def filter_pgd(pois: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def atm_excel_preprocess() -> pl.DataFrame:
-    df1 = pl.read_excel("./datasets/original/Mẫu 3 Pool ATM Data.xlsx").select(
-        pl.col("ATM_ID", "LATITUDE", "LONGITUDE")
-    )
-    df2 = pl.read_csv("./datasets/original/more_atms.csv").select(
-        pl.col("ATM_ID", "LATITUDE", "LONGITUDE").cast(pl.String),
-    )
-
-    table = pl.concat([df1, df2])
-
-    return (
-        table.unique(subset=["ATM_ID"])
-        .with_columns(
-            pl.col("LATITUDE").str.strip_chars().alias("LATITUDE"),
-            pl.col("LONGITUDE").str.strip_chars().alias("LONGITUDE"),
-        )
-        .filter(
-            pl.col("LONGITUDE").str.contains(r"\d+\.\d+"),
-            pl.col("LATITUDE").str.contains(r"\d+\.\d+"),
-        )
-    )
-
-
 def post_process_pgd():
     POPULATION_DATASET = Path(
         "./datasets/population/vnm_pop_2024_CN_100m_R2024B_v1.tif"
     )
 
     pois = pl.read_parquet("./vietnam_pois.parquet")
-    # print(pois)
-    # print(pois.schema)
-    # print(valid_df)
 
     # TODO
     pgds = pl.read_excel("./datasets/original/dim_region.xlsx").to_dicts()
@@ -383,140 +284,6 @@ def post_process_pgd():
     results_df.write_parquet("count_pgds.parquet")
 
 
-def post_process_atm():
-    POPULATION_DATASET = Path(
-        "./datasets/population/vnm_pop_2024_CN_100m_R2024B_v1.tif"
-    )
-
-    pois = pl.read_parquet("./vietnam_pois.parquet")
-    # print(pois)
-    # print(pois.schema)
-    # print(valid_df)
-    atms = atm_excel_preprocess().to_dicts()
-
-    results = []
-    for atm in tqdm(atms[:]):
-        try:
-            # print(atm["LATITUDE"], atm["LONGITUDE"])
-            center = Point(latitude=atm["LATITUDE"], longitude=atm["LONGITUDE"])
-            # print(center)
-            pois_in_radius = utils.filter_within_radius(
-                df=pois,
-                lat_col="latitude",
-                lon_col="longitude",
-                radius_m=1000,
-                center=center,
-            )
-            # print(pois_in_radius)
-            poi_transport_radius1 = pois_in_radius.select(
-                pl.col("is_poi_transport").sum()
-            ).item()
-            poi_pop_radius1 = pois_in_radius.select(pl.col("is_poi_popu").sum()).item()
-            poi_ecom_radius1 = pois_in_radius.select(pl.col("is_poi_ecom").sum()).item()
-            count_atm = len(pois_in_radius.filter(pl.col("is_ATM").eq(1)))
-            vcb_atm = filter_vcb_atm(pois=pois_in_radius)
-            atm_vcb_radius1 = len(vcb_atm)
-            atm_competitor_radius1 = count_atm - atm_vcb_radius1
-
-            result = {}
-            result.update(
-                {
-                    "poi_transport_radius1": poi_transport_radius1,
-                    "poi_ecom_radius1": poi_ecom_radius1,
-                    "poi_pop_radius1": poi_pop_radius1,
-                    "atm_vcb_radius1": atm_vcb_radius1,
-                    "atm_competitor_radius1": atm_competitor_radius1,
-                    "created_dated": datetime.now(UTC),
-                    "amt_id": atm["ATM_ID"],
-                    # "province": atm["CITY"],
-                    "latitude": atm["LATITUDE"],
-                    "longitude": atm["LONGITUDE"],
-                }
-            )
-
-            with rasterio.open(POPULATION_DATASET) as src:
-                total_population = pop_in_radius(
-                    center=center, radius_meters=1000, dataset=src
-                )
-                result.update({"population_radius1": total_population})
-            results.append(result)
-
-        except Exception as e:
-            logger.error(f"Failed: {e} for {atm}.")
-
-    results_df = pl.DataFrame(results)
-    results_df.write_parquet("count_atms.parquet")
-
-
-def add_areas(df: pl.DataFrame) -> pl.DataFrame:
-    areas = [file for file in Path("./queries/temp").iterdir()]
-    results = []
-    for area in tqdm(areas):
-        with open(area, "r", encoding="utf8") as f:
-            data = json.load(f)
-        polygon = utils.geojson_to_polygons(data)[0]
-        area_df = utils.add_area_col(df=df, poly=polygon, name=area.stem)
-        results.append(area_df)
-
-    result_df = pl.concat(results, how="vertical")
-    return result_df
-
-
-# adhoc fix excel atm original "CITY" col
-def refine_area(df: pl.DataFrame):
-    df = df.with_columns(
-        pl.col("province").str.replace_all("LAMDONG", "LAM DONG").alias("province")
-    )
-    df = df.with_columns(
-        pl.col("province")
-        .str.replace_all(
-            "(BR - VT)|(BR - VUNG TAU)|(BR - VUNGTAU)|(BR VUNGTAU)", "BR-VT"
-        )
-        .alias("province")
-    )
-    df = df.with_columns(
-        pl.col("province")
-        .str.replace_all("(002407)|(HO CHI MINH)|(HOCHIMINH)", "HCM")
-        .alias("province")
-    )
-
-    df = df.with_columns(
-        pl.col("province")
-        .str.replace_all("(TT HUE)|(TP HUE)|(HOCHIMINH)", "HCM")
-        .alias("province")
-    )
-
-    df = df.with_columns(
-        pl.col("province").str.replace_all("(DAKLAK)", "DAK LAK").alias("province")
-    )
-
-    df = df.with_columns(
-        pl.col("province").str.replace_all("(BACNINH)", "BAC NINH").alias("province")
-    )
-
-    df = df.with_columns(
-        pl.col("province").str.replace_all("(SOCTRANG)", "SOC TRANG").alias("province")
-    )
-
-    df = df.with_columns(
-        pl.col("province").str.replace_all("(Quang Nam)", "QUANG NAM").alias("province")
-    )
-
-    df = df.with_columns(
-        pl.col("province").str.replace_all("(RACH GIA)", "KIEN GIANG").alias("province")
-    )
-    df = df.with_columns(
-        pl.col("province")
-        .str.replace_all("(DUNG QUAT)", "QUANG NGAI")
-        .alias("province")
-    )
-    df = df.with_columns(
-        pl.col("province").str.replace_all("(CAM RANH)", "KHANH HOA").alias("province")
-    )
-
-    return df.filter(pl.col("province") != "SONG THAN")
-
-
 def post_process_points(points: list[Point], output="points.xlsx"):
     POPULATION_DATASET = Path(
         "./datasets/population/vnm_pop_2024_CN_100m_R2024B_v1.tif"
@@ -557,7 +324,7 @@ def post_process_points(points: list[Point], output="points.xlsx"):
                         ),
                         "latitude": center.latitude,
                         "longitude": center.longitude,
-                        "created_dated": datetime.now(UTC),
+                        "created_dated": datetime.now(),
                     }
                 )
 
@@ -570,24 +337,23 @@ def post_process_points(points: list[Point], output="points.xlsx"):
 
 
 def main():
-    COVER = Path("./queries/with_ocean/ha_noi.geojson")
+
+    COVER = Path("./queries/thanh_hoa.geojson")
     FACTOR = factor(
         densities=pl.read_csv("./datasets/population/V02.01.csv"), area=COVER
     )
     logger.info(f"factor for sample point: {FACTOR}")
-    test_area_crawl2(cover=COVER, factor=FACTOR, base_distance_points_ms=5000)
+    test_area_crawl2(
+        cover=COVER,
+        factor=FACTOR,
+        base_distance_points_ms=5000,
+    )
+
     # cli()
 
-    # summary()
-    # final_result()
-
-    # for ATM
-    # post_process_atm()
-    # post_process_test()
-
     # points = [
-    #     Point(10.798535355587667, 106.67002680912249),
-    #     Point(10.796825128491399, 106.66487038098914),
+    #     Point(10.9597855, 106.8550636),
+    #     Point(10.9558213, 106.8651273),
     # ]
     #
     # df = post_process_points(points, "pois.xlsx")
@@ -606,8 +372,8 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     logging.basicConfig(
         filename=Path("crawling.log"),
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] [%(name)s:%(lineno)d] %(message)s",
     )
     RAW_DATA_DIR = Path("./datasets/raw")
     QUERY_DIR = Path("./queries")
